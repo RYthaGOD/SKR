@@ -6,7 +6,7 @@ This automated "Flywheel" program incentivizes holding **Infinite Seeker Glitch 
 ## 🚀 Features
 
 *   **Fee Auto-Claimer**: Monitors the ISG Mint for accrued Creator Fees on Pump.fun and claims them (locally signed).
-*   **Auto-Buyback**: Uses the claimed SOL to buy **SKR** tokens on the Pump.fun bonding curve.
+*   **Auto-Buyback**: Uses the claimed SOL to buy **SKR** tokens using **Jupiter V6 Aggregator** for the best possible price across all DEXs.
 *   **Time-Weighted Rewards**: Tracks how long users hold ISG. Rewards are calculated as `Balance * Time Held`. Whales who just bought in don't dilute long-term holders immediately.
 *   **Dust Protection**: Automatically ignores rewards typically less than the cost of rent (configurable), ensuring the flywheel doesn't burn money on dust accounts.
 *   **Batched Distribution**: Sends rewards in efficient batches (12 transfers per transaction) to respect Solana limits.
