@@ -5,7 +5,8 @@ import {
     TRACKER_INTERVAL_MS,
     EPOCH_DURATION_MS,
     MIN_SOL_TO_CLAIM,
-    RPC_URL
+    RPC_URL,
+    WALLET_KEYPAIR // Added Import
 } from './config';
 import { Tracker } from './components/tracker';
 import { Distributor } from './components/distributor';
@@ -14,6 +15,10 @@ import { Jupiter } from './utils/jupiter'; // Import Jupiter
 import { Connection, PublicKey } from '@solana/web3.js';
 
 const connection = new Connection(RPC_URL, "confirmed");
+
+let isRunning = false;
+let lastClaimTime = 0;
+const CLAIM_INTERVAL_MS = 60 * 60 * 1000; // Check/Claim Fees every 1 Hour
 
 let lastEpochTime = Date.now();
 
@@ -28,10 +33,17 @@ async function main() {
 
     // Loop
     setInterval(async () => {
+        if (isRunning) {
+            console.log("[Flywheel] Previous cycle still running. Skipping...");
+            return;
+        }
         try {
+            isRunning = true;
             await runCycle();
         } catch (e) {
             console.error("[Flywheel] Cycle Error:", e);
+        } finally {
+            isRunning = false;
         }
     }, TRACKER_INTERVAL_MS);
 }
@@ -47,32 +59,48 @@ async function runCycle() {
     // Applies to ISG Holders
     await Tracker.snapshotAndScore();
 
-    // 2. Check Fees & Buyback (Every Cycle? Or Threshold?)
-    // Let's check fees every cycle.
+    // 2. Fees & Buyback (Blind Claim Strategy)
+    // Since we can't check fees easily, we attempt to claim every Hour.
+    // If successful, we get SOL. We then check Wallet Balance increase? 
+    // Simplified: "Try Claim" -> "Check Wallet Balance" -> "Swap Surplus".
+    // Actually, we can just Check Wallet Balance *before* and *after*.
+    // Or just check Wallet Balance for > MIN_SOL_TO_CLAIM + Buffer.
     try {
-        const feesToClaim = await checkClaimableFees();
-
-        if (feesToClaim > MIN_SOL_TO_CLAIM) {
-            console.log(`[Flywheel] Found ${feesToClaim} SOL in fees. Claiming...`);
+        if (now - lastClaimTime > CLAIM_INTERVAL_MS) {
+            console.log(`[Flywheel] Blind Claim Check (Every 1h)...`);
 
             // A. Claim
-            await PumpPortal.claimCreatorFees({ mint: ISG_MINT });
+            try {
+                await PumpPortal.claimCreatorFees({ mint: ISG_MINT });
+                console.log("[Flywheel] Fees Claimed (if any).");
+            } catch (claimErr) {
+                console.warn("[Flywheel] Claim attempt failed (maybe no fees/error):", claimErr);
+            }
 
-            // Wait a bit for confirmation/balance update
+            lastClaimTime = now;
+
+            // Wait for balance update
             await new Promise(r => setTimeout(r, 10000));
 
-            // B. Buy SKR using Jupiter
-            // We use the claimed amount (minus gas). 
-            // Simplified: Use 'feesToClaim' - 0.01 SOL buffer.
-            const buyAmount = feesToClaim - 0.01;
-            if (buyAmount > 0) {
+            // B. Check Balance & Swap
+            // We check the SOL balance of the wallet directly.
+            // If Balance > Reserve (e.g. 0.05), we swap the excess.
+            const balance = await connection.getBalance(WALLET_KEYPAIR.publicKey);
+            const balanceSol = balance / 1_000_000_000;
+            const RESERVE_SOL = 0.05; // Keep 0.05 SOL for gas
+
+            if (balanceSol > RESERVE_SOL + 0.02) { // Only swap if we have meaningful surplus (> 0.02)
+                const buyAmount = balanceSol - RESERVE_SOL;
+                console.log(`[Flywheel] Wallet Balance: ${balanceSol.toFixed(4)} SOL. Swapping surplus: ${buyAmount.toFixed(4)} SOL`);
+
                 // REFACTORED: Use Jupiter V6 for Best Price Routing
                 await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
+            } else {
+                console.log(`[Flywheel] Wallet Balance (${balanceSol.toFixed(4)}) too low to swap. Reserve: ${RESERVE_SOL}`);
             }
         } else {
-            console.log(`[Flywheel] Fees too low to claim (${feesToClaim} SOL). Threshold: ${MIN_SOL_TO_CLAIM}`);
+            console.log(`[Flywheel] Skipping Fee Claim (Last checked ${(now - lastClaimTime) / 60000} mins ago).`);
         }
-
     } catch (e) {
         console.error("[Flywheel] Fee/Buyback Error (skipping this cycle):", e);
     }
