@@ -99,73 +99,71 @@ export class Distributor {
 
             console.log(`[Distributor] Preparing Batch ${Math.floor(i / BATCH_SIZE) + 1}...`);
 
+            let mintInfo: any = null; // Cache mint info per batch
+
             for (const reward of batch) {
                 if (reward.amount <= 0) continue;
 
                 // REFACTORED: Dynamic Decimal Fetching
                 // We fetch the Mint info to ensure we use the correct decimals (6 or 9).
                 if (!mintInfo) {
-                    // REFACTORED: Dynamic Decimal Fetching
-                    // We fetch the Mint info to ensure we use the correct decimals (6 or 9).
-                    if (!mintInfo) {
-                        try {
-                            mintInfo = await getMint(connection, skrMint);
-                        } catch (e) {
-                            console.error("[Distributor] Failed to fetch Mint Info. Defaulting to 6 decimals (RISKY).", e);
-                        }
-                    }
-                    const decimals = mintInfo ? mintInfo.decimals : 6;
-                    const rawAmount = Math.floor(reward.amount * Math.pow(10, decimals));
-
-                    if (rawAmount === 0) continue;
-
                     try {
-                        const destWallet = new PublicKey(reward.address);
-                        const destATA = await getAssociatedTokenAddress(skrMint, destWallet);
-
-                        // 1. Create ATA if needed (Idempotent = only if not exists)
-                        // This costs rent (~0.002 SOL) for the sender if account doesn't exist.
-                        // This is 'Fair' for a flywheel - the fees pay for this.
-                        tx.add(
-                            createAssociatedTokenAccountIdempotentInstruction(
-                                sourceWallet, // Payer
-                                destATA,      // Associated Token Account
-                                destWallet,   // Owner
-                                skrMint       // Mint
-                            )
-                        );
-
-                        // 2. Transfer
-                        tx.add(
-                            createTransferInstruction(
-                                sourceATA,
-                                destATA,
-                                sourceWallet,
-                                rawAmount
-                            )
-                        );
-
-                        instructionCount += 2;
-
+                        mintInfo = await getMint(connection, skrMint);
                     } catch (e) {
-                        console.error(`[Distributor] Error preparing reward for ${reward.address}:`, e);
+                        console.error("[Distributor] Failed to fetch Mint Info. Defaulting to 6 decimals (RISKY).", e);
                     }
                 }
+                const decimals = mintInfo ? mintInfo.decimals : 6;
+                const rawAmount = Math.floor(reward.amount * Math.pow(10, decimals));
 
-                if (instructionCount > 0) {
-                    try {
-                        const sig = await sendAndConfirmTransaction(connection, tx, [WALLET_KEYPAIR]);
-                        console.log(`[Distributor] Batch Sent: https://solscan.io/tx/${sig}`);
-                    } catch (e) {
-                        console.error(`[Distributor] Batch Failed (May need to retry manually):`, e);
-                    }
-                } else {
-                    console.log(`[Distributor] Empty batch, skipping.`);
+                if (rawAmount === 0) continue;
+
+                try {
+                    const destWallet = new PublicKey(reward.address);
+                    const destATA = await getAssociatedTokenAddress(skrMint, destWallet);
+
+                    // 1. Create ATA if needed (Idempotent = only if not exists)
+                    // This costs rent (~0.002 SOL) for the sender if account doesn't exist.
+                    tx.add(
+                        createAssociatedTokenAccountIdempotentInstruction(
+                            sourceWallet, // Payer
+                            destATA,      // Associated Token Account
+                            destWallet,   // Owner
+                            skrMint       // Mint
+                        )
+                    );
+
+                    // 2. Transfer
+                    tx.add(
+                        createTransferInstruction(
+                            sourceATA,
+                            destATA,
+                            sourceWallet,
+                            rawAmount
+                        )
+                    );
+
+                    instructionCount += 2;
+
+                } catch (e) {
+                    console.error(`[Distributor] Error preparing reward for ${reward.address}:`, e);
                 }
             }
 
-            // After successful distribution... Reset Points?
-            // YES, per plan "Daily Epoch + Reset".
-            Tracker.resetPoints();
+            if (instructionCount > 0) {
+                try {
+                    const sig = await sendAndConfirmTransaction(connection, tx, [WALLET_KEYPAIR]);
+                    console.log(`[Distributor] Batch Sent: https://solscan.io/tx/${sig}`);
+                } catch (e) {
+                    console.error(`[Distributor] Batch Failed (May need to retry manually):`, e);
+                }
+            } else {
+                console.log(`[Distributor] Empty batch, skipping.`);
+            }
         }
+
+        // After successful distribution... Reset Points?
+        // YES, per plan "Daily Epoch + Reset".
+        Tracker.resetPoints();
     }
+}
