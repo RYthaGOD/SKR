@@ -10,6 +10,7 @@ import {
 import { Tracker } from './components/tracker';
 import { Distributor } from './components/distributor';
 import { PumpPortal } from './utils/pumportal';
+import { Jupiter } from './utils/jupiter'; // Import Jupiter
 import { Connection, PublicKey } from '@solana/web3.js';
 
 const connection = new Connection(RPC_URL, "confirmed");
@@ -60,12 +61,13 @@ async function runCycle() {
             // Wait a bit for confirmation/balance update
             await new Promise(r => setTimeout(r, 10000));
 
-            // B. Buy SKR
+            // B. Buy SKR using Jupiter
             // We use the claimed amount (minus gas). 
             // Simplified: Use 'feesToClaim' - 0.01 SOL buffer.
             const buyAmount = feesToClaim - 0.01;
             if (buyAmount > 0) {
-                await PumpPortal.buyToken(buyAmount, SKR_MINT);
+                // REFACTORED: Use Jupiter V6 for Best Price Routing
+                await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
             }
         } else {
             console.log(`[Flywheel] Fees too low to claim (${feesToClaim} SOL). Threshold: ${MIN_SOL_TO_CLAIM}`);
