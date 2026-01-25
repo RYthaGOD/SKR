@@ -15,7 +15,7 @@ import {
     TokenAccountNotFoundError,
     TokenInvalidAccountOwnerError
 } from '@solana/spl-token';
-import { RPC_URL, WALLET_KEYPAIR, SKR_MINT, ISG_MINT } from '../config'; // Added ISG_MINT Import
+import { RPC_URL, WALLET_KEYPAIR, SKR_MINT, ISG_MINT, EXCLUDED_ADDRESSES, MIN_REWARD_TOKENS } from '../config';
 import { Tracker } from './tracker';
 
 const connection = new Connection(RPC_URL, "confirmed");
