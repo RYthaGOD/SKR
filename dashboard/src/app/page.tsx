@@ -123,7 +123,13 @@ export default function Home() {
   };
 
   const handleClaim = async () => {
-    if (!publicKey) return;
+    addLog(`[DEBUG] Claim Button Clicked.`);
+    if (!publicKey) {
+      addLog(`[ERROR] Wallet not connected.`);
+      return;
+    }
+
+    addLog(`[DEBUG] Wallet: ${publicKey.toBase58().slice(0, 8)}...`);
 
     try {
       setState(prev => ({ ...prev, loading: true }));
@@ -291,8 +297,9 @@ export default function Home() {
 
       </div>
 
+
       {/* MID HUD: TERMINAL & MANUAL */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 z-10">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 z-10">
 
         {/* Terminal Output */}
         <div className="lg:col-span-2 border-terminal relative overflow-hidden bg-black/60 shadow-[inset_0_0_40px_rgba(0,255,65,0.05)] h-[400px] flex flex-col">
@@ -325,6 +332,28 @@ export default function Home() {
           {/* Progress Slider */}
           <div className="w-full h-[2px] bg-[#00ff41]/5">
             <div className="h-full bg-[#00ff41] shadow-[0_0_10px_#00ff41]" style={{ width: `${progress}%`, transition: 'width 1s linear' }}></div>
+          </div>
+        </div>
+
+        {/* TOP HOLDERS (Moved) */}
+        <div className="border-terminal p-4 flex flex-col gap-2 h-[400px]">
+          <div className="flex justify-between items-center border-b border-[#00ff41]/20 pb-2 mb-2">
+            <span className="text-[9px] font-black uppercase tracking-widest opacity-80">TOP_HOLDERS</span>
+            <span className="text-[8px] bg-[#00ff41]/10 text-[#00ff41] px-1 rounded animate-pulse">LIVE</span>
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+            {stats?.analytics?.leaderboard?.map((h: any, i: number) => (
+              <div key={i} className="flex justify-between items-center text-[10px] bg-white/5 p-2 border border-white/5 hover:border-[#00ff41]/30 transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#00ff41] w-4 opacity-50">#{i + 1}</span>
+                  <span className="font-mono opacity-80">{h.address}</span>
+                </div>
+                <div className="font-bold tracking-tight">{h.points?.toLocaleString()} ISG</div>
+              </div>
+            ))}
+            {(!stats?.analytics?.leaderboard || stats.analytics.leaderboard.length === 0) && (
+              <div className="text-center opacity-30 text-[9px] py-4">SCANNING_DISTRIBUTION_NODES...</div>
+            )}
           </div>
         </div>
 
