@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "echo '--- PKG JSON START v1.2.1 ---' && next start -p $PORT",
     "lint": "eslint"
   },
   "dependencies": {
