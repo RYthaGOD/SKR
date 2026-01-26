@@ -136,7 +136,8 @@ const updateHistory = (isg: number, skr: number, sol: number) => {
     // Update system pressure based on recent volatility or activity
     flywheelState.systemPressure = Math.min(1.0, 0.1 + (flywheelState.cycleCount % 10) / 20 + Math.random() * 0.1);
 
-    // We don't need to call saveStats() here unless generic props changed
+    // SAVE STATS (Critical for persistence)
+    saveStats();
 };
 
 const addFlywheelLog = (msg: string) => {

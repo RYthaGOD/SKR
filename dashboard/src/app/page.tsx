@@ -4,6 +4,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useEffect, useState } from 'react';
 import { Connection, Transaction, VersionedTransaction } from '@solana/web3.js';
+import { ArrowUpRight, Activity, Flame } from 'lucide-react';
 
 interface ClaimState {
   points: number;
@@ -24,6 +25,9 @@ export default function Home() {
   });
   const [stats, setStats] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const [progress, setProgress] = useState(0);
+  const [isBooting, setIsBooting] = useState(true);
+  const [bootLogs, setBootLogs] = useState<string[]>([]);
 
   const addLog = (msg: string) => setLogs(prev => [...prev, `> ${msg}`]);
 
@@ -43,6 +47,44 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
+  // Boot Sequence
+  useEffect(() => {
+    const sequence = [
+      "INITIALIZING_CORE...",
+      "AUTHENTICATING_SKR_NODE...",
+      "SYNCING_MAINNET_ALPHAv0.9.9...",
+      "CALIBRATING_TOPOLOGY_MAP...",
+      "ESTABLISHING_DATA_LINK...",
+      "PERFECTION_MODE_ACTIVE"
+    ];
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < sequence.length) {
+        setBootLogs(prev => [...prev, `[ OK ] ${sequence[i]}`]);
+        i++;
+      } else {
+        clearInterval(interval);
+        setTimeout(() => setIsBooting(false), 800);
+      }
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Cycle Progress
+  useEffect(() => {
+    if (!stats?.cycleParams?.nextCycle) return;
+    const updateProgress = () => {
+      const total = 5 * 60 * 1000; // 5 mins
+      const elapsed = Date.now() - stats.cycleParams.lastCycle;
+      const percent = Math.min(100, Math.max(0, (elapsed / total) * 100));
+      setProgress(percent);
+    };
+    updateProgress();
+    const pInterval = setInterval(updateProgress, 1000);
+    return () => clearInterval(pInterval);
+  }, [stats]);
+
+
   // Fetch Eligibility periodically
   useEffect(() => {
     if (publicKey) {
@@ -50,7 +92,7 @@ export default function Home() {
       const interval = setInterval(() => checkEligibility(publicKey.toBase58()), 15000);
       return () => clearInterval(interval);
     }
-  }, [publicKey, stats?.vaultSkr]); // Refresh if wallet changes OR if bot buys back more SKR
+  }, [publicKey, stats?.vaultSkr]);
 
   const checkEligibility = async (address: string) => {
     setState(prev => ({ ...prev, loading: true }));
@@ -105,9 +147,7 @@ export default function Home() {
       const transactionBuffer = Buffer.from(data.transaction, 'base64');
       const transaction = Transaction.from(transactionBuffer);
 
-      // Send (Wallet signs as Payer + Burn Owner)
-      // Note: Use a connection object that points to real RPC used in frontend (Mainnet)
-      const connection = new Connection("https://api.mainnet-beta.solana.com"); // Ideally from config
+      const connection = new Connection("https://api.mainnet-beta.solana.com");
       const signature = await sendTransaction(transaction, connection);
 
       addLog(`Transaction Sent: ${signature.slice(0, 8)}...`);
@@ -126,46 +166,6 @@ export default function Home() {
       setState(prev => ({ ...prev, loading: false, error: e.message }));
     }
   };
-
-  // Calculate Progress Percent
-  const [progress, setProgress] = useState(0);
-  const [isBooting, setIsBooting] = useState(true);
-  const [bootLogs, setBootLogs] = useState<string[]>([]);
-
-  useEffect(() => {
-    const sequence = [
-      "INITIALIZING_CORE...",
-      "AUTHENTICATING_SKR_NODE...",
-      "SYNCING_MAINNET_ALPHAv0.9.9...",
-      "CALIBRATING_TOPOLOGY_MAP...",
-      "ESTABLISHING_DATA_LINK...",
-      "PERFECTION_MODE_ACTIVE"
-    ];
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < sequence.length) {
-        setBootLogs(prev => [...prev, `[ OK ] ${sequence[i]}`]);
-        i++;
-      } else {
-        clearInterval(interval);
-        setTimeout(() => setIsBooting(false), 800);
-      }
-    }, 400);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!stats?.cycleParams?.nextCycle) return;
-    const updateProgress = () => {
-      const total = 5 * 60 * 1000; // 5 mins
-      const elapsed = Date.now() - stats.cycleParams.lastCycle;
-      const percent = Math.min(100, Math.max(0, (elapsed / total) * 100));
-      setProgress(percent);
-    };
-    updateProgress();
-    const pInterval = setInterval(updateProgress, 1000);
-    return () => clearInterval(pInterval);
-  }, [stats]);
 
   const Sparkline = ({ data }: { data: number[] }) => {
     if (!data || data.length < 2) return null;
@@ -195,244 +195,200 @@ export default function Home() {
   }
 
   return (
-    <main className="crt-effect flex flex-col items-center justify-center min-h-screen p-2 md:p-6 bg-black overflow-hidden font-mono text-[#00ff41] text-[12px]">
-      <div className="sweep-line" />
+    <main className="min-h-screen bg-black text-[#00ff41] font-mono selection:bg-[#00ff41] selection:text-black p-4 md:p-8 flex flex-col gap-6 relative overflow-hidden">
+      {/* Background Matrix/Grid Effect */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-20" style={{
+        backgroundImage: 'linear-gradient(rgba(0, 255, 65, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 65, 0.1) 1px, transparent 1px)',
+        backgroundSize: '40px 40px'
+      }}></div>
 
-      {/* Dynamic Animated Grid */}
-      <div className="fixed inset-0 opacity-[0.05] pointer-events-none bg-fluid-grid" />
-
-      {/* God-Tier Sidebar Stats */}
-      <div className="fixed top-0 left-0 h-screen w-12 border-r border-[#00ff41]/20 flex-col items-center py-8 gap-12 hidden lg:flex">
-        <div className="rotate-90 whitespace-nowrap text-[8px] tracking-[1em] opacity-30 uppercase font-black">SYSTEM_PROTOCOL_v0.9.9</div>
-        <div className="flex flex-col gap-4">
-          <div className="w-1 h-1 bg-[#00ff41] rounded-full animate-ping"></div>
-          <div className="w-1 h-3 bg-[#00ff41]/20 rounded-full"></div>
-          <div className="w-1 h-6 bg-[#00ff41]/40 rounded-full"></div>
+      {/* HEADER */}
+      <header className="flex justify-between items-center z-10 border-b border-[#00ff41]/20 pb-4">
+        <div className="flex flex-col">
+          <h1 className="text-3xl md:text-5xl font-black tracking-tighter italic uppercase glitch-text" data-text="SKR_Flywheel">
+            SKR_Flywheel
+          </h1>
+          <div className="flex gap-4 text-[10px] opacity-60 tracking-widest mt-1">
+            <span>SYS_STATUS: <span className={stats?.cycleParams?.status === "IDLE" ? "text-yellow-400" : "text-[#00ff41] animate-pulse"}>{stats?.cycleParams?.status || "OFFLINE"}</span></span>
+            <span>NET: MAINNET-BETA</span>
+          </div>
         </div>
+        <WalletMultiButton className="!bg-[#00ff41] !text-black hover:!bg-[#00cc33] !font-bold !rounded-none !uppercase !text-xs !px-6 !h-10 transition-all hover:scale-105" />
+      </header>
+
+      {/* MAIN DASHBOARD GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 z-10">
+
+        {/* ISG CA Banner */}
+        <div className="md:col-span-4 border-terminal p-2 md:p-3 flex flex-col md:flex-row items-center justify-between bg-[#001100]/50 backdrop-blur-sm group hover:border-[#00ff41]/50 transition-colors gap-2">
+          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+            <div className="bg-[#00ff41]/10 px-2 py-1 rounded text-[9px] font-black tracking-widest text-[#00ff41]">ISG_MINT</div>
+            <code className="text-[10px] font-bold tracking-tight text-[#00ff41]/80 select-all font-mono break-all md:break-normal">
+              BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump
+            </code>
+          </div>
+          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+            <span className="hidden md:inline text-[8px] opacity-40 uppercase tracking-widest">Fee_Generator_Contract</span>
+            <button
+              onClick={() => navigator.clipboard.writeText("BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump")}
+              className="hover:bg-[#00ff41] hover:text-black px-2 py-1 transition-colors text-[9px] font-bold border border-[#00ff41]/20 hover:border-transparent"
+            >
+              [ COPY ]
+            </button>
+          </div>
+        </div>
+
+        {/* 1. SKR PRICE */}
+        <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
+          <div className="flex justify-between items-start">
+            <div className="text-[9px] opacity-40 uppercase tracking-tighter">SKR_PRICE_SOL</div>
+            <ArrowUpRight className="w-3 h-3 opacity-20 group-hover:opacity-100 transition-opacity" />
+          </div>
+          <div className="text-3xl font-black italic">
+            {stats?.skrPriceSol?.toFixed(8) || "0.00000000"}
+          </div>
+          <div className="text-[8px] opacity-30 mt-2">MARKET_VALUE_REALTIME</div>
+        </div>
+
+        {/* 2. ISG BURNED (NEW) */}
+        <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
+          <div className="flex justify-between items-start">
+            <div className="text-[9px] opacity-40 uppercase tracking-tighter">TOTAL_ISG_INCINERATED</div>
+            <Flame className="w-3 h-3 opacity-20 group-hover:opacity-100 transition-opacity text-red-500" />
+          </div>
+          <div className="text-3xl font-black italic text-red-500/80">
+            {stats?.analytics?.totalBurned?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || "0"}
+          </div>
+          <div className="text-[8px] opacity-30 mt-2">DESTRUCTION_COMPLETE</div>
+        </div>
+
+        {/* 3. VAULT SOL RESERVE */}
+        <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
+          <div className="flex justify-between items-start">
+            <div className="text-[9px] opacity-40 uppercase tracking-tighter">VAULT_SOL_RESERVE</div>
+          </div>
+          <div className="text-3xl font-black italic text-[#00ff41]">
+            {stats?.vaultSol?.toFixed(4) || "0.0000"} <span className="text-xs opacity-50">SOL</span>
+          </div>
+          <div className="text-[8px] opacity-30 mt-2">FUEL_RODS_ACTIVE</div>
+        </div>
+
+        {/* 4. TOTAL DISTRIBUTED / VAULT HOLDINGS */}
+        <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
+          <div className="flex justify-between items-start">
+            <div className="text-[9px] opacity-40 uppercase tracking-tighter">SKR_DISTRIBUTED</div>
+          </div>
+          <div className="text-3xl font-black italic text-[#00ff41]">
+            {stats?.analytics?.totalDistributed?.toLocaleString() || "0"} <span className="text-xs opacity-50">SKR</span>
+          </div>
+          <div className="text-[8px] opacity-30 mt-2">REWARDS_CIRCULATING</div>
+        </div>
+
       </div>
 
-      <div className="z-10 w-full max-w-6xl space-y-4">
+      {/* MID HUD: TERMINAL & MANUAL */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 z-10">
 
-        {/* TOP HUD: Flow & Main Stats */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-
-          {/* ISG CA Banner */}
-          <div className="lg:col-span-4 border-terminal p-2 md:p-3 flex flex-col md:flex-row items-center justify-between bg-[#001100]/50 backdrop-blur-sm group hover:border-[#00ff41]/50 transition-colors gap-2">
-            <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-              <div className="bg-[#00ff41]/10 px-2 py-1 rounded text-[9px] font-black tracking-widest text-[#00ff41]">ISG_MINT</div>
-              <code className="text-[10px] font-bold tracking-tight text-[#00ff41]/80 select-all font-mono break-all md:break-normal">
-                BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump
-              </code>
-            </div>
-            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-              <span className="hidden md:inline text-[8px] opacity-40 uppercase tracking-widest">Fee_Generator_Contract</span>
-              <button
-                onClick={() => navigator.clipboard.writeText("BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump")}
-                className="hover:bg-[#00ff41] hover:text-black px-2 py-1 transition-colors text-[9px] font-bold border border-[#00ff41]/20 hover:border-transparent"
-              >
-                [ COPY ]
-              </button>
-            </div>
+        {/* Terminal Output */}
+        <div className="lg:col-span-2 border-terminal relative overflow-hidden bg-black/60 shadow-[inset_0_0_40px_rgba(0,255,65,0.05)] h-[400px] flex flex-col">
+          <div className="terminal-header px-4 py-2 flex justify-between items-center text-[9px] font-black uppercase tracking-widest opacity-80 border-b border-[#00ff41]/20 bg-black/80">
+            <span>[ FLYWHEEL_CORE_STREAMS ]</span>
+            <span className="flex items-center gap-4">
+              <span>CYCLES: {stats?.cycleParams?.count || 0}</span>
+              <span className="flex items-center gap-2">
+                BUFFER: {stats?.vaultSol?.toFixed(4)} SOL
+                <div className="w-1.5 h-1.5 bg-[#00ff41] animate-pulse"></div>
+              </span>
+            </span>
           </div>
 
-          {/* 1. SKR PRICE */}
-          <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div className="text-[9px] opacity-40 uppercase tracking-tighter">SKR_PRICE_SOL</div>
-              <ArrowUpRight className="w-3 h-3 opacity-20 group-hover:opacity-100 transition-opacity" />
-            </div>
-            <div className="text-3xl font-black italic">
-              {stats?.skrPriceSol?.toFixed(8) || "0.00000000"}
-            </div>
-            <div className="text-[8px] opacity-30 mt-2">MARKET_VALUE_REALTIME</div>
+          <div className="p-4 flex-1 overflow-y-auto custom-scrollbar space-y-1.5 font-mono text-xs">
+            {stats?.cycleParams?.logs?.map((log: string, i: number) => {
+              const isSystem = log.includes("[SYSTEM]");
+              const isClaim = log.includes("Burned") || log.includes("Claiming");
+              const isError = log.includes("Error");
+              return (
+                <div key={i} className={`flex gap-3 leading-relaxed animate-in fade-in duration-500 ${isSystem ? 'text-white/80 font-bold' : isClaim ? 'text-[#00ff41]' : isError ? 'text-red-500' : 'opacity-70'}`}>
+                  <span className="opacity-20 text-[10px] pt-0.5 select-none">{(stats.cycleParams.logs.length - i).toString().padStart(3, '0')}</span>
+                  <span>{log}</span>
+                </div>
+              );
+            })}
+            <div className="animate-pulse">_</div>
           </div>
 
-          {/* 2. ISG BURNED (NEW) */}
-          <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div className="text-[9px] opacity-40 uppercase tracking-tighter">TOTAL_ISG_INCINERATED</div>
-              <Flame className="w-3 h-3 opacity-20 group-hover:opacity-100 transition-opacity text-red-500" />
-            </div>
-            <div className="text-3xl font-black italic text-red-500/80">
-              {stats?.analytics?.totalBurned?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || "0"}
-            </div>
-            <div className="text-[8px] opacity-30 mt-2">DESTRUCTION_COMPLETE</div>
-          </div>
-
-          {/* 3. VAULT SOL RESERVE */}
-          <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div className="text-[9px] opacity-40 uppercase tracking-tighter">VAULT_SOL_RESERVE</div>
-            </div>
-            <div className="text-3xl font-black italic text-[#00ff41]">
-              {stats?.vaultSol?.toFixed(4) || "0.0000"} <span className="text-xs opacity-50">SOL</span>
-            </div>
-            <div className="text-[8px] opacity-30 mt-2">FUEL_RODS_ACTIVE</div>
-          </div>
-
-          {/* 4. TOTAL DISTRIBUTED / VAULT HOLDINGS */}
-          <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
-            <div className="flex justify-between items-start">
-              <div className="text-[9px] opacity-40 uppercase tracking-tighter">SKR_DISTRIBUTED</div>
-            </div>
-            <div className="text-3xl font-black italic text-[#00ff41]">
-              {stats?.analytics?.totalDistributed?.toLocaleString() || "0"} <span className="text-xs opacity-50">SKR</span>
-            </div>
-            <div className="text-[8px] opacity-30 mt-2">REWARDS_CIRCULATING</div>
-          </div>
-
-
-          {/* MID HUD: TERMINAL & LEADERBOARD */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            {/* Terminal Output */}
-            <div className="lg:col-span-3 border-terminal relative overflow-hidden bg-black/60 shadow-[inset_0_0_40px_rgba(0,255,65,0.05)]">
-
-              <div className="terminal-header px-4 py-1.5 flex justify-between items-center text-[9px] font-black uppercase tracking-widest opacity-80">
-                <span>[ FLYWHEEL_CORE_STREAMS ]</span>
-                <span className="flex items-center gap-4">
-                  <span>CYCLES: {stats?.cycleParams?.count || 0}</span>
-                  <span className="flex items-center gap-2">
-                    BUFFER: {stats?.vaultSol?.toFixed(4)} SOL
-                    <div className="w-1.5 h-1.5 bg-[#00ff41] animate-pulse"></div>
-                  </span>
-                </span>
-              </div>
-
-              <div className="p-4 h-[350px] overflow-y-auto custom-scrollbar space-y-1.5 relative">
-                {stats?.cycleParams?.logs?.map((log: string, i: number) => {
-                  const isSystem = log.includes("[SYSTEM]");
-                  const isClaim = log.includes("Burned");
-                  return (
-                    <div key={i} className={`flex gap-3 leading-relaxed animate-in fade-in duration-500 ${isSystem ? 'text-white/80 font-bold' : isClaim ? 'text-red-400' : 'opacity-70'}`}>
-                      <span className="opacity-20 text-[10px] pt-0.5 select-none">{(stats.cycleParams.logs.length - i).toString().padStart(3, '0')}</span>
-                      <span className="text-[11px]">{log}</span>
-                    </div>
-                  );
-                })}
-                <div className="animate-pulse">_</div>
-              </div>
-
-              {/* Progress Slider */}
-              <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#00ff41]/5">
-                <div className="h-full bg-[#00ff41] shadow-[0_0_10px_#00ff41]" style={{ width: `${progress}%`, transition: 'width 1s linear' }}></div>
-              </div>
-            </div>
-
-            {/* How It Works Section */}
-            <div className="border-terminal p-4 bg-black/40 flex flex-col group relative overflow-hidden h-[350px]">
-              {/* Background tech deco */}
-              <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
-                <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="#00ff41">
-                  <path d="M0 0 L100 100 M100 0 L0 100" strokeWidth="0.5" />
-                  <rect x="25" y="25" width="50" height="50" strokeWidth="0.5" />
-                </svg>
-              </div>
-
-              <div className="text-[10px] font-black tracking-widest uppercase mb-4 opacity-70 border-b border-[#00ff41]/10 pb-2 flex justify-between">
-                <span>System_Protocol_Manual</span>
-                <span className="text-[#00ff41] animate-pulse">v0.9.9</span>
-              </div>
-
-              <div className="flex-1 space-y-4 text-[10px] relative z-10 overflow-y-auto custom-scrollbar">
-                <div className="flex gap-3 text-left">
-                  <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">1</div>
-                  <div className="flex-1">
-                    <div className="font-bold opacity-80 mb-0.5">ISG_GENERATION</div>
-                    <div className="opacity-50 leading-relaxed text-[9px]">Transactions on the ISG Bonding Curve generate SOL fees automatically.</div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 text-left">
-                  <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">2</div>
-                  <div className="flex-1">
-                    <div className="font-bold opacity-80 mb-0.5">AUTOMATED_BUYBACK</div>
-                    <div className="opacity-50 leading-relaxed text-[9px]">Protocol sweeps fees (every 1hr) to buy back SKR from the open market.</div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 text-left">
-                  <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">3</div>
-                  <div className="flex-1">
-                    <div className="font-bold opacity-80 mb-0.5">TOKEN_DISTRIBUTION</div>
-                    <div className="opacity-50 leading-relaxed text-[9px]">Purchased SKR is deposited into the Vault and distributed to eligible holders based on holding %.</div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 text-left mt-2 pt-2 border-t border-[#00ff41]/10">
-                  <div className="font-black text-black bg-[#00ff41] h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] animate-pulse">!</div>
-                  <div className="flex-1">
-                    <div className="font-bold opacity-100 text-[#00ff41] mb-0.5">LATEST_HARVEST_VALUE</div>
-                    <div className="opacity-80 leading-relaxed text-[10px] font-mono">
-                      {stats?.lastBuybackAmount ? stats.lastBuybackAmount.toFixed(4) : "0.0000"} SOL
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Vault Capacitance Small HUD (Preserved) */}
-              <div className="mt-4 pt-4 border-t border-[#00ff41]/10 space-y-3 relative z-10">
-                <div className="flex justify-between text-[9px] opacity-50 uppercase tracking-widest">
-                  <span>Vault_Filling</span>
-                  <span>{stats?.vaultSkr ? ((stats.vaultSkr / 100000) * 100).toFixed(0) : 0}%</span>
-                </div>
-                <div className="h-2 bg-black/60 rounded-full overflow-hidden p-[1px] border border-[#00ff41]/20">
-                  <div className="h-full bg-gradient-to-r from-[#003300] to-[#00ff41] shadow-[0_0_10px_rgba(0,255,65,0.4)]" style={{ width: `${Math.min(100, (stats?.vaultSkr / 100000) * 100)}%` }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* BOTTOM HUD: CALL TO ACTION */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="border-terminal p-6 flex flex-col justify-center bg-gradient-to-r from-black to-[#001100]/40 group overflow-hidden">
-              <div className="relative z-10">
-                <h2 className="text-2xl font-black tracking-tighter mb-1 italic glow-text">OPERATOR_CLAIM_GATE</h2>
-                <p className="text-[10px] opacity-40 uppercase tracking-[0.3em] mb-4">Connect Wallet to sync localized rewards</p>
-                <div className="flex gap-4 items-center">
-                  <WalletMultiButton className="!bg-[#003300] !border !border-[#00ff41] !text-[#00ff41] !shadow-[0_0_15px_rgba(0,255,65,0.2)] hover:!bg-[#005500] hover:!scale-105 !transition-all !font-mono !rounded-none !uppercase !text-xs !w-fit" />
-                  <div className="hidden md:block text-[8px] opacity-20 max-w-[120px]">SECURED BY PUMP_PROTOCOL MAINNET_ALPHAv0.9.9</div>
-                </div>
-              </div>
-              <div className="absolute top-0 right-0 w-24 h-full bg-[#00ff41]/5 -skew-x-12 translate-x-12 group-hover:translate-x-0 transition-transform duration-700"></div>
-            </div>
-
-            {publicKey && (
-              <div className="border-terminal p-6 flex items-center justify-between gap-8 bg-[#001100]/20 animate-in slide-in-from-bottom duration-500 overflow-hidden relative">
-                <div className="space-y-1 relative z-10">
-                  <div className="text-[9px] opacity-50 uppercase tracking-widest">Available_Harvest</div>
-                  <div className="text-4xl font-black italic tabular-nums">
-                    {state.amount > 0 ? state.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                    <span className="text-xs opacity-30 not-italic ml-2">SKR</span>
-                  </div>
-                </div>
-
-                <div className="flex-1 max-w-[180px] relative z-10">
-                  <button
-                    onClick={handleClaim}
-                    disabled={!state.claimable || state.loading}
-                    className={`
-                       btn-terminal w-full py-4 text-xs font-black tracking-widest
-                       ${(!state.claimable || state.loading) ? 'opacity-20 cursor-not-allowed grayscale' : 'hover:scale-105 active:scale-95'}
-                     `}
-                  >
-                    {state.loading ? 'SYNCING...' : 'INITIALIZE_HARVEST'}
-                  </button>
-                </div>
-                {/* Visual Accent */}
-                <div className="absolute top-0 right-0 p-2 text-[8px] opacity-10 font-bold uppercase tracking-widest">ENCRYPTED_FLOW</div>
-              </div>
-            )}
-          </div>
-
-          {/* Footer info */}
-          <div className="flex justify-between px-2 text-[8px] opacity-30 uppercase tracking-[0.5em] font-bold">
-            <span>Lat: {progress.toFixed(2)}ms</span>
-            <span>SKR_Network_Node_v0.9.9_Premium_Gated</span>
-            <span>Stability: 99.98%</span>
+          {/* Progress Slider */}
+          <div className="w-full h-[2px] bg-[#00ff41]/5">
+            <div className="h-full bg-[#00ff41] shadow-[0_0_10px_#00ff41]" style={{ width: `${progress}%`, transition: 'width 1s linear' }}></div>
           </div>
         </div>
 
-        <style jsx global>{`
+        {/* How It Works Section */}
+        <div className="border-terminal p-4 bg-black/40 flex flex-col group relative overflow-hidden h-[400px]">
+          {/* Background tech deco */}
+          <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
+            <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="#00ff41">
+              <path d="M0 0 L100 100 M100 0 L0 100" strokeWidth="0.5" />
+              <rect x="25" y="25" width="50" height="50" strokeWidth="0.5" />
+            </svg>
+          </div>
+
+          <div className="text-[10px] font-black tracking-widest uppercase mb-4 opacity-70 border-b border-[#00ff41]/10 pb-2 flex justify-between shrink-0">
+            <span>System_Protocol_Manual</span>
+            <span className="text-[#00ff41] animate-pulse">v1.0.0</span>
+          </div>
+
+          <div className="flex-1 space-y-4 text-[10px] relative z-10 overflow-y-auto custom-scrollbar pr-2">
+            <div className="flex gap-3 text-left">
+              <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] shrink-0">1</div>
+              <div className="flex-1">
+                <div className="font-bold opacity-80 mb-0.5">ISG_GENERATION</div>
+                <div className="opacity-50 leading-relaxed text-[9px]">Transactions on the ISG Bonding Curve generate SOL fees automatically.</div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 text-left">
+              <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] shrink-0">2</div>
+              <div className="flex-1">
+                <div className="font-bold opacity-80 mb-0.5">AUTOMATED_BUYBACK</div>
+                <div className="opacity-50 leading-relaxed text-[9px]">Protocol checks for fees periodically. When &gt; 0.05 SOL accumulates, it claims and uses 90% to buy back SKR from the open market.</div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 text-left">
+              <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] shrink-0">3</div>
+              <div className="flex-1">
+                <div className="font-bold opacity-80 mb-0.5">TOKEN_DISTRIBUTION</div>
+                <div className="opacity-50 leading-relaxed text-[9px]">Purchased SKR is deposited into the Vault. You can claim your share based on your % holdings.</div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 text-left mt-2 pt-2 border-t border-[#00ff41]/10">
+              <div className="font-black text-black bg-[#00ff41] h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] animate-pulse shrink-0">!</div>
+              <div className="flex-1">
+                <div className="font-bold opacity-100 text-[#00ff41] mb-0.5">LATEST_HARVEST_VALUE</div>
+                <div className="opacity-80 leading-relaxed text-[10px] font-mono">
+                  {stats?.lastBuybackAmount ? stats.lastBuybackAmount.toFixed(4) : "0.0000"} SOL
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Vault Capacitance Small HUD (Preserved) */}
+          <div className="mt-4 pt-4 border-t border-[#00ff41]/10 space-y-3 relative z-10 shrink-0">
+            <div className="flex justify-between text-[9px] opacity-50 uppercase tracking-widest">
+              <span>Vault_Filling</span>
+              <span>{stats?.vaultSkr ? ((stats.vaultSkr / 100000) * 100).toFixed(0) : 0}%</span>
+            </div>
+            <div className="h-2 bg-black/60 rounded-full overflow-hidden p-[1px] border border-[#00ff41]/20">
+              <div className="h-full bg-gradient-to-r from-[#003300] to-[#00ff41] shadow-[0_0_10px_rgba(0,255,65,0.4)]" style={{ width: `${Math.min(100, (stats?.vaultSkr / 100000) * 100)}%` }}></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <style jsx global>{`
         .glow-text-red {
           text-shadow: 0 0 10px rgba(255, 0, 0, 0.4), 0 0 20px rgba(255, 0, 0, 0.2);
         }
