@@ -1,9 +1,24 @@
 
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 
 const DB_BASE_PATH = process.env.DB_STORAGE_PATH || __dirname;
 const DB_PATH = path.join(DB_BASE_PATH, 'flywheel.db');
+
+console.log(`[Database] Using storage path: ${DB_PATH}`);
+
+// Ensure directory exists
+if (!fs.existsSync(DB_BASE_PATH)) {
+    console.log(`[Database] Directory not found. Creating: ${DB_BASE_PATH}`);
+    try {
+        fs.mkdirSync(DB_BASE_PATH, { recursive: true });
+    } catch (e: any) {
+        console.error(`[Database] Failed to create directory: ${e.message}`);
+        // Let it throw naturally on DB creation if this failed
+    }
+}
+
 const db = new Database(DB_PATH);
 
 // Initialize Tables
