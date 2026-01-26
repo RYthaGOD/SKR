@@ -1,4 +1,5 @@
 'use client';
+// Force Rebuild: v1.2.1 Timestamp CHECK
 
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
@@ -217,7 +218,7 @@ export default function Home() {
       <header className="flex justify-between items-center z-10 border-b border-[#00ff41]/20 pb-4">
         <div className="flex flex-col">
           <h1 className="text-3xl md:text-5xl font-black tracking-tighter italic uppercase glitch-text" data-text="SKR_Flywheel">
-            SKR_Flywheel <span className="text-sm align-top text-[#00ff41] border border-[#00ff41] px-1 rounded ml-2">v1.2</span>
+            SKR_Flywheel <span className="text-sm align-top text-[#00ff41] border border-[#00ff41] px-1 rounded ml-2">v1.2.1</span>
           </h1>
           <div className="flex gap-4 text-[10px] opacity-60 tracking-widest mt-1">
             <span>SYS_STATUS: <span className={stats?.cycleParams?.status === "IDLE" ? "text-yellow-400" : "text-[#00ff41] animate-pulse"}>{stats?.cycleParams?.status || "OFFLINE"}</span></span>
