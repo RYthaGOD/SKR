@@ -1,6 +1,6 @@
 
 import { Connection, PublicKey } from '@solana/web3.js';
-import { getAssociatedTokenAddress, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
+import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { RPC_URL, ISG_MINT } from '../config';
 
 const connection = new Connection(RPC_URL, "confirmed");
@@ -20,8 +20,8 @@ export class Tracker {
             const owner = new PublicKey(address);
             const mint = new PublicKey(ISG_MINT);
 
-            // Get ATA - ISG is Token-2022 (BAsz...pump)
-            const ata = await getAssociatedTokenAddress(mint, owner, false, TOKEN_2022_PROGRAM_ID);
+            // Get ATA - Defaulting to V1 (Standard) as per user confirmation
+            const ata = await getAssociatedTokenAddress(mint, owner, false, TOKEN_PROGRAM_ID);
 
             // Fetch Balance
             const balance = await connection.getTokenAccountBalance(ata);
