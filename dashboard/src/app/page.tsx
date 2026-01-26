@@ -397,6 +397,16 @@ export default function Home() {
                   <div className="opacity-50 leading-relaxed text-[9px]">Purchased SKR is deposited into the Vault and distributed to eligible holders based on holding %.</div>
                 </div>
               </div>
+
+              <div className="flex gap-3 text-left mt-2 pt-2 border-t border-[#00ff41]/10">
+                <div className="font-black text-black bg-[#00ff41] h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] animate-pulse">!</div>
+                <div className="flex-1">
+                  <div className="font-bold opacity-100 text-[#00ff41] mb-0.5">LATEST_HARVEST_VALUE</div>
+                  <div className="opacity-80 leading-relaxed text-[10px] font-mono">
+                    {stats?.lastBuybackAmount ? stats.lastBuybackAmount.toFixed(4) : "0.0000"} SOL
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Vault Capacitance Small HUD (Preserved) */}
