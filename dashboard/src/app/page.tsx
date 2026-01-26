@@ -342,24 +342,32 @@ export default function Home() {
             <div className="flex gap-3 text-left">
               <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] shrink-0">1</div>
               <div className="flex-1">
-                <div className="font-bold opacity-80 mb-0.5">ISG_GENERATION</div>
-                <div className="opacity-50 leading-relaxed text-[9px]">Transactions on the ISG Bonding Curve generate SOL fees automatically.</div>
+                <div className="font-bold opacity-80 mb-0.5">FUEL_INJECTION (FEES)</div>
+                <div className="opacity-50 leading-relaxed text-[9px]">Market trades on Pump.fun generate fee revenue. These fees are the community's fuel.</div>
               </div>
             </div>
 
             <div className="flex gap-3 text-left">
               <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] shrink-0">2</div>
               <div className="flex-1">
-                <div className="font-bold opacity-80 mb-0.5">AUTOMATED_BUYBACK</div>
-                <div className="opacity-50 leading-relaxed text-[9px]">Protocol checks for fees periodically. When &gt; 0.05 SOL accumulates, it claims and uses 90% to buy back SKR from the open market.</div>
+                <div className="font-bold opacity-80 mb-0.5">AUTO_ACQUISITION (BUYBACK)</div>
+                <div className="opacity-50 leading-relaxed text-[9px]">The Flywheel claims fees to buy SKR tokens from the open market, filling the Vault.</div>
               </div>
             </div>
 
             <div className="flex gap-3 text-left">
               <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] shrink-0">3</div>
               <div className="flex-1">
-                <div className="font-bold opacity-80 mb-0.5">TOKEN_DISTRIBUTION</div>
-                <div className="opacity-50 leading-relaxed text-[9px]">Purchased SKR is deposited into the Vault. You can claim your share based on your % holdings.</div>
+                <div className="font-bold opacity-80 mb-0.5">YIELD_CALCULATION (SNAPSHOT)</div>
+                <div className="opacity-50 leading-relaxed text-[9px]">At the end of each cycle, your share of the Vault is calculated based on your ISG holdings.</div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 text-left">
+              <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] shrink-0">4</div>
+              <div className="flex-1">
+                <div className="font-bold opacity-80 mb-0.5">ENTROPY_BURN (CLAIM)</div>
+                <div className="opacity-50 leading-relaxed text-[9px]">Claim your SKR rewards. <span className="text-red-500 font-bold">COST:</span> You burn a tiny amount of ISG to make everyone else's tokens rarer.</div>
               </div>
             </div>
 
