@@ -117,23 +117,24 @@ const saveStats = () => {
     // History and Logs are saved incrementally via their specific helpers
 };
 
-const h = flywheelState.history;
-h.isgPrice.push(isg);
-h.skrPrice.push(skr);
-h.vaultSol.push(sol);
+const updateHistory = (isg: number, skr: number, sol: number) => {
+    const h = flywheelState.history;
+    h.isgPrice.push(isg);
+    h.skrPrice.push(skr);
+    h.vaultSol.push(sol);
 
-// Keep locally
-if (h.isgPrice.length > 24) {
-    h.isgPrice.shift();
-    h.skrPrice.shift();
-    h.vaultSol.shift();
-}
+    // Keep locally
+    if (h.isgPrice.length > 24) {
+        h.isgPrice.shift();
+        h.skrPrice.shift();
+        h.vaultSol.shift();
+    }
 
-// Persist
-addHistoryPoint(Date.now(), isg, skr, sol);
+    // Persist
+    addHistoryPoint(Date.now(), isg, skr, sol);
 
-// Update system pressure based on recent volatility or activity
-flywheelState.systemPressure = Math.min(1.0, 0.1 + (flywheelState.cycleCount % 10) / 20 + Math.random() * 0.1);
+    // Update system pressure based on recent volatility or activity
+    flywheelState.systemPressure = Math.min(1.0, 0.1 + (flywheelState.cycleCount % 10) / 20 + Math.random() * 0.1);
 
     // We don't need to call saveStats() here unless generic props changed
 };
