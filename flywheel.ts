@@ -404,7 +404,7 @@ app.get('/api/stats', async (req, res) => {
             analytics: {
                 totalDistributed: flywheelState.totalSkrDistributed,
                 totalBurned: await getIsgBurned(), // Realtime On-Chain
-                leaderboard: Tracker.getTopHolders(5).map((h: any) => ({
+                leaderboard: (await Tracker.getTopHolders(5)).map((h: any) => ({
                     address: h.address ? (h.address.slice(0, 4) + '...' + h.address.slice(-4)) : "N/A",
                     points: Math.round(h.points || 0)
                 }))

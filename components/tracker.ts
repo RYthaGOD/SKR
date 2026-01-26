@@ -70,7 +70,40 @@ export class Tracker {
      * Leaderboard: Empty for now (since we don't snapshot all holders)
      * To implement without mock: We'd need to scrape Solscan or use a Pro API.
      */
-    static getTopHolders(limit: number = 5): any[] {
-        return []; // No mocks in production
+    /**
+     * Leaderboard: Fetch Top 10 Holders via RPC
+     */
+    static async getTopHolders(limit: number = 5): Promise<any[]> {
+        try {
+            const mint = new PublicKey(ISG_MINT);
+            const largest = await connection.getTokenLargestAccounts(mint);
+
+            if (!largest.value || largest.value.length === 0) return [];
+
+            // Filter out small accounts and limit
+            const topAccounts = largest.value.slice(0, limit);
+
+            // Resolve Owners (Parallel)
+            const resolved = await Promise.all(topAccounts.map(async (acc) => {
+                try {
+                    const accInfo = await connection.getParsedAccountInfo(new PublicKey(acc.address));
+                    if (accInfo.value && 'parsed' in accInfo.value.data) {
+                        return {
+                            address: accInfo.value.data.parsed.info.owner,
+                            points: acc.uiAmount
+                        };
+                    }
+                } catch (e) {
+                    return null;
+                }
+                return null;
+            }));
+
+            // Filter nulls
+            return resolved.filter(r => r !== null);
+        } catch (e) {
+            console.error("[Tracker] Failed to fetch leaderboard", e);
+            return [];
+        }
     }
 }
