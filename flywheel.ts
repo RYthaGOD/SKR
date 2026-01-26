@@ -282,6 +282,23 @@ async function getTokenBalance(mint: string): Promise<number> {
         return 0; // Return 0 if account doesn't exist
     }
 }
+}
+
+async function getIsgBurned(): Promise<number> {
+    if (ISG_MINT.includes("REPLACE")) return 0;
+    try {
+        const mintPubkey = new PublicKey(ISG_MINT);
+        const mintInfo = await getMint(connection, mintPubkey);
+        const currentSupply = Number(mintInfo.supply) / Math.pow(10, mintInfo.decimals);
+        const initialSupply = 1_000_000_000; // Standard Pump.fun 1B Supply
+
+        const burned = initialSupply - currentSupply;
+        return Math.max(0, burned);
+    } catch (e) {
+        console.warn("[Flywheel] Failed to fetch ISG Supply", e);
+        return flywheelState.totalIsgBurned; // Fallback to internal counter
+    }
+}
 
 // Start
 // --- SERVER & API ---
@@ -348,7 +365,7 @@ app.get('/api/stats', async (req, res) => {
             history: flywheelState.history,
             analytics: {
                 totalDistributed: flywheelState.totalSkrDistributed,
-                totalBurned: flywheelState.totalIsgBurned,
+                totalBurned: await getIsgBurned(), // Realtime On-Chain
                 leaderboard: Tracker.getTopHolders(5).map((h: any) => ({
                     address: h.address ? (h.address.slice(0, 4) + '...' + h.address.slice(-4)) : "N/A",
                     points: Math.round(h.points || 0)
