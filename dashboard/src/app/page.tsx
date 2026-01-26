@@ -215,6 +215,25 @@ export default function Home() {
 
         {/* TOP HUD: Flow & Main Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+
+          {/* ISG CA Banner */}
+          <div className="lg:col-span-4 border-terminal p-2 md:p-3 flex flex-col md:flex-row items-center justify-between bg-[#001100]/50 backdrop-blur-sm group hover:border-[#00ff41]/50 transition-colors gap-2">
+            <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+              <div className="bg-[#00ff41]/10 px-2 py-1 rounded text-[9px] font-black tracking-widest text-[#00ff41]">ISG_MINT</div>
+              <code className="text-[10px] font-bold tracking-tight text-[#00ff41]/80 select-all font-mono break-all md:break-normal">
+                BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump
+              </code>
+            </div>
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+              <span className="hidden md:inline text-[8px] opacity-40 uppercase tracking-widest">Fee_Generator_Contract</span>
+              <button
+                onClick={() => navigator.clipboard.writeText("BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump")}
+                className="hover:bg-[#00ff41] hover:text-black px-2 py-1 transition-colors text-[9px] font-bold border border-[#00ff41]/20 hover:border-transparent"
+              >
+                [ COPY ]
+              </button>
+            </div>
+          </div>
           {/* Flow Map Visualization */}
           <div className="lg:col-span-2 border-terminal p-4 flex flex-col relative bg-black/40 group overflow-hidden">
             <div className="flex justify-between items-center mb-4">
