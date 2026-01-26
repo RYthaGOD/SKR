@@ -334,7 +334,7 @@ export default function Home() {
           </div>
 
           <div className="text-[10px] font-black tracking-widest uppercase mb-4 opacity-70 border-b border-[#00ff41]/10 pb-2 flex justify-between shrink-0">
-            <span>System_Protocol_Manual</span>
+            <span>HOW IT WORKS (SYSTEM PROTOCOL)</span>
             <span className="text-[#00ff41] animate-pulse">v1.0.0</span>
           </div>
 
