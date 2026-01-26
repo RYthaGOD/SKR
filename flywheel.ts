@@ -282,7 +282,7 @@ async function getTokenBalance(mint: string): Promise<number> {
         return 0; // Return 0 if account doesn't exist
     }
 }
-}
+
 
 async function getIsgBurned(): Promise<number> {
     if (ISG_MINT.includes("REPLACE")) return 0;
