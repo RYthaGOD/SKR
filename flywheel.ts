@@ -61,7 +61,8 @@ let flywheelState = {
         skrPrice: [] as number[],
         vaultSol: [] as number[]
     },
-    logs: [] as string[]
+    logs: [] as string[],
+    lastBuybackAmount: 0 // New field
 };
 
 // PERSISTENCE: Load initial state
@@ -160,7 +161,6 @@ async function runCycle() {
                 lastClaimTime = now;
                 await new Promise(r => setTimeout(r, 10000));
             }
-        } catch (e) {
         } catch (e) {
             console.warn("[Flywheel] Claim check skipped.");
         }
