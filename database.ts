@@ -2,7 +2,8 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const DB_PATH = path.join(__dirname, 'flywheel.db');
+const DB_BASE_PATH = process.env.DB_STORAGE_PATH || __dirname;
+const DB_PATH = path.join(DB_BASE_PATH, 'flywheel.db');
 const db = new Database(DB_PATH);
 
 // Initialize Tables
