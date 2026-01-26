@@ -52,7 +52,7 @@ export default function Home() {
     const sequence = [
       "INITIALIZING_CORE...",
       "AUTHENTICATING_SKR_NODE...",
-      "SYNCING_MAINNET_ALPHAv0.9.9...",
+      "SYNCING_MAINNET_ALPHA...",
       "CALIBRATING_TOPOLOGY_MAP...",
       "ESTABLISHING_DATA_LINK...",
       "PERFECTION_MODE_ACTIVE"

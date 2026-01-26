@@ -17,4 +17,4 @@ startCommand = "npx ts-node flywheel.ts"
 [[services]]
 name = "dashboard"
 rootDirectory = "/dashboard"
-startCommand = "npm start"
+startCommand = "npm run build && npm start"
