@@ -358,27 +358,49 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Leaderboard Section */}
-          <div className="border-terminal p-4 bg-black/40 flex flex-col group">
-            <div className="text-[10px] font-black tracking-widest uppercase mb-4 opacity-70 border-b border-[#00ff41]/10 pb-2 flex justify-between">
-              <span>Top_Operators</span>
-              <span className="text-[#00ff41]">EXP</span>
-            </div>
-            <div className="flex-1 space-y-3">
-              {stats?.analytics?.leaderboard?.map((h: any, i: number) => (
-                <div key={i} className="flex justify-between items-center group/item cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[9px] opacity-30">0{i + 1}</span>
-                    <span className="text-[11px] font-bold tracking-tight group-hover/item:text-white transition-colors">{h.address}</span>
-                  </div>
-                  <span className="text-[10px] font-black italic">{h.points}</span>
-                </div>
-              ))}
-              {(!stats?.analytics?.leaderboard || stats?.analytics?.leaderboard.length === 0) && <div className="text-[10px] opacity-20 italic">No holders tracked yet...</div>}
+          {/* How It Works Section */}
+          <div className="border-terminal p-4 bg-black/40 flex flex-col group relative overflow-hidden h-[350px]">
+            {/* Background tech deco */}
+            <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
+              <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="#00ff41">
+                <path d="M0 0 L100 100 M100 0 L0 100" strokeWidth="0.5" />
+                <rect x="25" y="25" width="50" height="50" strokeWidth="0.5" />
+              </svg>
             </div>
 
-            {/* Vault Capacitance Small HUD */}
-            <div className="mt-8 pt-4 border-t border-[#00ff41]/10 space-y-3">
+            <div className="text-[10px] font-black tracking-widest uppercase mb-4 opacity-70 border-b border-[#00ff41]/10 pb-2 flex justify-between">
+              <span>System_Protocol_Manual</span>
+              <span className="text-[#00ff41] animate-pulse">v0.9.9</span>
+            </div>
+
+            <div className="flex-1 space-y-4 text-[10px] relative z-10 overflow-y-auto custom-scrollbar">
+              <div className="flex gap-3 text-left">
+                <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">1</div>
+                <div className="flex-1">
+                  <div className="font-bold opacity-80 mb-0.5">ISG_GENERATION</div>
+                  <div className="opacity-50 leading-relaxed text-[9px]">Transactions on the ISG Bonding Curve generate SOL fees automatically.</div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 text-left">
+                <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">2</div>
+                <div className="flex-1">
+                  <div className="font-bold opacity-80 mb-0.5">AUTOMATED_BUYBACK</div>
+                  <div className="opacity-50 leading-relaxed text-[9px]">Protocol sweeps fees (every 1hr) to buy back SKR from the open market.</div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 text-left">
+                <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">3</div>
+                <div className="flex-1">
+                  <div className="font-bold opacity-80 mb-0.5">TOKEN_DISTRIBUTION</div>
+                  <div className="opacity-50 leading-relaxed text-[9px]">Purchased SKR is deposited into the Vault and distributed to eligible holders based on holding %.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Vault Capacitance Small HUD (Preserved) */}
+            <div className="mt-4 pt-4 border-t border-[#00ff41]/10 space-y-3 relative z-10">
               <div className="flex justify-between text-[9px] opacity-50 uppercase tracking-widest">
                 <span>Vault_Filling</span>
                 <span>{stats?.vaultSkr ? ((stats.vaultSkr / 100000) * 100).toFixed(0) : 0}%</span>

@@ -25,6 +25,7 @@ export const RPC_URL = process.env.RPC_URL || "https://api.mainnet-beta.solana.c
 export const PUMP_PORTAL_API = "https://pumpportal.fun/api";
 export const EPOCH_DURATION_MS = 5 * 60 * 1000; // 5 Minutes (TESTING)
 export const TRACKER_INTERVAL_MS = 5 * 60 * 1000;     // 5 Minutes
+export const CLAIM_INTERVAL_MS = 60 * 60 * 1000;      // 1 Hour
 export const MIN_SOL_TO_CLAIM = 0.05;                 // Minimum accumulated SOL fees to trigger a claim
 export const RESERVE_SOL = 0.05;                      // Minimum SOL to keep in wallet at all times
 export const SLIPPAGE_BPS = 200;                      // 2% Slippage
