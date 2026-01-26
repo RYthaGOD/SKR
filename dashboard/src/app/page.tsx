@@ -234,245 +234,205 @@ export default function Home() {
               </button>
             </div>
           </div>
-          {/* Flow Map Visualization */}
-          <div className="lg:col-span-2 border-terminal p-4 flex flex-col relative bg-black/40 group overflow-hidden">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-[10px] font-black tracking-widest uppercase opacity-60">Distribution_Topology</span>
-              <div className="flex gap-2 items-center">
-                <span className="text-[9px] animate-pulse">LIVE_FLOW</span>
-                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_red]"></div>
-              </div>
+
+          {/* 1. SKR PRICE */}
+          <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
+            <div className="flex justify-between items-start">
+              <div className="text-[9px] opacity-40 uppercase tracking-tighter">SKR_PRICE_SOL</div>
+              <ArrowUpRight className="w-3 h-3 opacity-20 group-hover:opacity-100 transition-opacity" />
             </div>
-            <div className="flex-1 flex items-center justify-center min-h-[120px] relative">
-              {/* SVG Flow Map */}
-              <svg className="w-full h-full max-h-[140px]" viewBox="0 0 400 120">
-                <defs>
-                  <marker id="arrow" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
-                    <path d="M0,0 L10,5 L0,10 L2,5 Z" fill="#00ff41" />
-                  </marker>
-                </defs>
-                {/* Nodes */}
-                <g transform={`scale(${1 + (stats?.systemPressure || 0) * 0.02})`} style={{ transformOrigin: '50% 50%' }}>
-                  <rect x="25" y="40" width="70" height="35" className="fill-black stroke-[#00ff41] stroke-1 opacity-40" />
-                  <text x="60" y="62" textAnchor="middle" fill="#00ff41" className="text-[10px] font-bold">FEES</text>
-
-                  <rect x="165" y="40" width="70" height="35" className="fill-black stroke-[#00ff41] stroke-1" />
-                  <text x="200" y="62" textAnchor="middle" fill="#00ff41" className="text-[10px] font-bold">BUYBACK</text>
-
-                  <rect x="305" y="40" width="70" height="35" className="fill-black stroke-[#00ff41] stroke-1 opacity-40" />
-                  <text x="340" y="62" textAnchor="middle" fill="#00ff41" className="text-[10px] font-bold">DISTRO</text>
-                </g>
-
-                {/* Paths */}
-                <line x1="100" y1="57" x2="160" y2="57" stroke="#00ff41" strokeWidth="1" strokeDasharray="5,5" className="animate-[dash_10s_linear_infinite]" />
-                <line x1="240" y1="57" x2="300" y2="57" stroke="#00ff41" strokeWidth="1" strokeDasharray="5,5" className="animate-[dash_10s_linear_infinite]" />
-
-                {/* Flow Particles */}
-                <circle r="2" fill="#00ff41" style={{ filter: 'drop-shadow(0 0 5px #00ff41)' }}>
-                  <animateMotion dur="2.5s" repeatCount="indefinite" path="M100,57 L160,57" />
-                </circle>
-                <circle r="2" fill="#00ff41" style={{ filter: 'drop-shadow(0 0 5px #00ff41)' }}>
-                  <animateMotion dur="2.5s" repeatCount="indefinite" path="M240,57 L300,57" begin="1.25s" />
-                </circle>
-              </svg>
+            <div className="text-3xl font-black italic">
+              {stats?.skrPriceSol?.toFixed(8) || "0.00000000"}
             </div>
+            <div className="text-[8px] opacity-30 mt-2">MARKET_VALUE_REALTIME</div>
           </div>
 
-          {/* Metrics Hud with Sparklines */}
-          <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-            <div className="border-terminal p-4 flex flex-col justify-between stat-card group">
-              <div className="flex justify-between items-start">
-                <div className="text-[9px] opacity-40 uppercase tracking-tighter">Total_ISG_Incinerated</div>
-                <Sparkline data={stats?.history?.isgPrice || []} />
-              </div>
-              <div className="text-3xl font-black italic text-red-500 glow-text-red">
-                {stats?.analytics?.totalBurned?.toFixed(2) || "0.00"}
-              </div>
-              <div className="text-[8px] opacity-30 mt-2 flex justify-between">
-                <span>DESTRUCTION_COMPLETE</span>
-                <span>v{stats?.systemPressure?.toFixed(2)}</span>
-              </div>
+          {/* 2. ISG BURNED (NEW) */}
+          <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
+            <div className="flex justify-between items-start">
+              <div className="text-[9px] opacity-40 uppercase tracking-tighter">TOTAL_ISG_INCINERATED</div>
+              <Flame className="w-3 h-3 opacity-20 group-hover:opacity-100 transition-opacity text-red-500" />
             </div>
-            <div className="border-terminal p-4 flex flex-col justify-between stat-card group">
-              <div className="flex justify-between items-start">
-                <div className="text-[9px] opacity-40 uppercase tracking-tighter">SKR_Buyback_Volume</div>
-                <Sparkline data={stats?.history?.skrPrice || []} />
-              </div>
-              <div className="text-3xl font-black italic">
-                {stats?.analytics?.totalDistributed?.toLocaleString() || "0"}
-              </div>
-              <div className="text-[8px] opacity-30 mt-2">REWARDS_CIRCULATING</div>
+            <div className="text-3xl font-black italic text-red-500/80">
+              {stats?.analytics?.totalBurned?.toLocaleString(undefined, { maximumFractionDigits: 0 }) || "0"}
             </div>
-
-            {/* NEW: Vault Holdings */}
-            <div className="border-terminal p-4 flex flex-col justify-between stat-card group">
-              <div className="flex justify-between items-start">
-                <div className="text-[9px] opacity-40 uppercase tracking-tighter">VAULT_SOL_RESERVE</div>
-              </div>
-              <div className="text-3xl font-black italic text-[#00ff41]">
-                {stats?.vaultSol?.toFixed(4) || "0.0000"} <span className="text-xs opacity-50">SOL</span>
-              </div>
-              <div className="text-[8px] opacity-30 mt-2">FUEL_RODS_ACTIVE</div>
-            </div>
-            <div className="border-terminal p-4 flex flex-col justify-between stat-card group">
-              <div className="flex justify-between items-start">
-                <div className="text-[9px] opacity-40 uppercase tracking-tighter">VAULT_SKR_HOLDINGS</div>
-              </div>
-              <div className="text-3xl font-black italic text-[#00ff41]">
-                {stats?.vaultSkr?.toLocaleString() || "0"} <span className="text-xs opacity-50">SKR</span>
-              </div>
-              <div className="text-[8px] opacity-30 mt-2">READY_FOR_DEPLOYMENT</div>
-            </div>
+            <div className="text-[8px] opacity-30 mt-2">DESTRUCTION_COMPLETE</div>
           </div>
-        </div>
 
-        {/* MID HUD: TERMINAL & LEADERBOARD */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          {/* Terminal Output */}
-          <div className="lg:col-span-3 border-terminal relative overflow-hidden bg-black/60 shadow-[inset_0_0_40px_rgba(0,255,65,0.05)]">
-            <div className="terminal-header px-4 py-1.5 flex justify-between items-center text-[9px] font-black uppercase tracking-widest opacity-80">
-              <span>[ FLYWHEEL_CORE_STREAMS ]</span>
-              <span className="flex items-center gap-2">
-                BUFFER: {stats?.vaultSol?.toFixed(4)} SOL
-                <div className="w-1.5 h-1.5 bg-[#00ff41] animate-pulse"></div>
-              </span>
+          {/* 3. VAULT SOL RESERVE */}
+          <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
+            <div className="flex justify-between items-start">
+              <div className="text-[9px] opacity-40 uppercase tracking-tighter">VAULT_SOL_RESERVE</div>
+            </div>
+            <div className="text-3xl font-black italic text-[#00ff41]">
+              {stats?.vaultSol?.toFixed(4) || "0.0000"} <span className="text-xs opacity-50">SOL</span>
+            </div>
+            <div className="text-[8px] opacity-30 mt-2">FUEL_RODS_ACTIVE</div>
+          </div>
+
+          {/* 4. TOTAL DISTRIBUTED / VAULT HOLDINGS */}
+          <div className="border-terminal p-4 flex flex-col justify-between stat-card group min-h-[120px]">
+            <div className="flex justify-between items-start">
+              <div className="text-[9px] opacity-40 uppercase tracking-tighter">SKR_DISTRIBUTED</div>
+            </div>
+            <div className="text-3xl font-black italic text-[#00ff41]">
+              {stats?.analytics?.totalDistributed?.toLocaleString() || "0"} <span className="text-xs opacity-50">SKR</span>
+            </div>
+            <div className="text-[8px] opacity-30 mt-2">REWARDS_CIRCULATING</div>
+          </div>
+
+
+          {/* MID HUD: TERMINAL & LEADERBOARD */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            {/* Terminal Output */}
+            <div className="lg:col-span-3 border-terminal relative overflow-hidden bg-black/60 shadow-[inset_0_0_40px_rgba(0,255,65,0.05)]">
+
+              <div className="terminal-header px-4 py-1.5 flex justify-between items-center text-[9px] font-black uppercase tracking-widest opacity-80">
+                <span>[ FLYWHEEL_CORE_STREAMS ]</span>
+                <span className="flex items-center gap-4">
+                  <span>CYCLES: {stats?.cycleParams?.count || 0}</span>
+                  <span className="flex items-center gap-2">
+                    BUFFER: {stats?.vaultSol?.toFixed(4)} SOL
+                    <div className="w-1.5 h-1.5 bg-[#00ff41] animate-pulse"></div>
+                  </span>
+                </span>
+              </div>
+
+              <div className="p-4 h-[350px] overflow-y-auto custom-scrollbar space-y-1.5 relative">
+                {stats?.cycleParams?.logs?.map((log: string, i: number) => {
+                  const isSystem = log.includes("[SYSTEM]");
+                  const isClaim = log.includes("Burned");
+                  return (
+                    <div key={i} className={`flex gap-3 leading-relaxed animate-in fade-in duration-500 ${isSystem ? 'text-white/80 font-bold' : isClaim ? 'text-red-400' : 'opacity-70'}`}>
+                      <span className="opacity-20 text-[10px] pt-0.5 select-none">{(stats.cycleParams.logs.length - i).toString().padStart(3, '0')}</span>
+                      <span className="text-[11px]">{log}</span>
+                    </div>
+                  );
+                })}
+                <div className="animate-pulse">_</div>
+              </div>
+
+              {/* Progress Slider */}
+              <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#00ff41]/5">
+                <div className="h-full bg-[#00ff41] shadow-[0_0_10px_#00ff41]" style={{ width: `${progress}%`, transition: 'width 1s linear' }}></div>
+              </div>
             </div>
 
-            <div className="p-4 h-[350px] overflow-y-auto custom-scrollbar space-y-1.5 relative">
-              {stats?.cycleParams?.logs?.map((log: string, i: number) => {
-                const isSystem = log.includes("[SYSTEM]");
-                const isClaim = log.includes("Burned");
-                return (
-                  <div key={i} className={`flex gap-3 leading-relaxed animate-in fade-in duration-500 ${isSystem ? 'text-white/80 font-bold' : isClaim ? 'text-red-400' : 'opacity-70'}`}>
-                    <span className="opacity-20 text-[9px] pt-0.5">{(stats.cycleParams.logs.length - i).toString().padStart(3, '0')}</span>
-                    <span className="text-[11px]">{log}</span>
+            {/* How It Works Section */}
+            <div className="border-terminal p-4 bg-black/40 flex flex-col group relative overflow-hidden h-[350px]">
+              {/* Background tech deco */}
+              <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
+                <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="#00ff41">
+                  <path d="M0 0 L100 100 M100 0 L0 100" strokeWidth="0.5" />
+                  <rect x="25" y="25" width="50" height="50" strokeWidth="0.5" />
+                </svg>
+              </div>
+
+              <div className="text-[10px] font-black tracking-widest uppercase mb-4 opacity-70 border-b border-[#00ff41]/10 pb-2 flex justify-between">
+                <span>System_Protocol_Manual</span>
+                <span className="text-[#00ff41] animate-pulse">v0.9.9</span>
+              </div>
+
+              <div className="flex-1 space-y-4 text-[10px] relative z-10 overflow-y-auto custom-scrollbar">
+                <div className="flex gap-3 text-left">
+                  <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">1</div>
+                  <div className="flex-1">
+                    <div className="font-bold opacity-80 mb-0.5">ISG_GENERATION</div>
+                    <div className="opacity-50 leading-relaxed text-[9px]">Transactions on the ISG Bonding Curve generate SOL fees automatically.</div>
                   </div>
-                );
-              })}
-              <div className="animate-pulse">_</div>
-            </div>
-
-            {/* Progress Slider */}
-            <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#00ff41]/5">
-              <div className="h-full bg-[#00ff41] shadow-[0_0_10px_#00ff41]" style={{ width: `${progress}%`, transition: 'width 1s linear' }}></div>
-            </div>
-          </div>
-
-          {/* How It Works Section */}
-          <div className="border-terminal p-4 bg-black/40 flex flex-col group relative overflow-hidden h-[350px]">
-            {/* Background tech deco */}
-            <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
-              <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="#00ff41">
-                <path d="M0 0 L100 100 M100 0 L0 100" strokeWidth="0.5" />
-                <rect x="25" y="25" width="50" height="50" strokeWidth="0.5" />
-              </svg>
-            </div>
-
-            <div className="text-[10px] font-black tracking-widest uppercase mb-4 opacity-70 border-b border-[#00ff41]/10 pb-2 flex justify-between">
-              <span>System_Protocol_Manual</span>
-              <span className="text-[#00ff41] animate-pulse">v0.9.9</span>
-            </div>
-
-            <div className="flex-1 space-y-4 text-[10px] relative z-10 overflow-y-auto custom-scrollbar">
-              <div className="flex gap-3 text-left">
-                <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">1</div>
-                <div className="flex-1">
-                  <div className="font-bold opacity-80 mb-0.5">ISG_GENERATION</div>
-                  <div className="opacity-50 leading-relaxed text-[9px]">Transactions on the ISG Bonding Curve generate SOL fees automatically.</div>
                 </div>
-              </div>
 
-              <div className="flex gap-3 text-left">
-                <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">2</div>
-                <div className="flex-1">
-                  <div className="font-bold opacity-80 mb-0.5">AUTOMATED_BUYBACK</div>
-                  <div className="opacity-50 leading-relaxed text-[9px]">Protocol sweeps fees (every 1hr) to buy back SKR from the open market.</div>
+                <div className="flex gap-3 text-left">
+                  <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">2</div>
+                  <div className="flex-1">
+                    <div className="font-bold opacity-80 mb-0.5">AUTOMATED_BUYBACK</div>
+                    <div className="opacity-50 leading-relaxed text-[9px]">Protocol sweeps fees (every 1hr) to buy back SKR from the open market.</div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex gap-3 text-left">
-                <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">3</div>
-                <div className="flex-1">
-                  <div className="font-bold opacity-80 mb-0.5">TOKEN_DISTRIBUTION</div>
-                  <div className="opacity-50 leading-relaxed text-[9px]">Purchased SKR is deposited into the Vault and distributed to eligible holders based on holding %.</div>
+                <div className="flex gap-3 text-left">
+                  <div className="font-black text-[#00ff41] bg-[#00ff41]/10 h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px]">3</div>
+                  <div className="flex-1">
+                    <div className="font-bold opacity-80 mb-0.5">TOKEN_DISTRIBUTION</div>
+                    <div className="opacity-50 leading-relaxed text-[9px]">Purchased SKR is deposited into the Vault and distributed to eligible holders based on holding %.</div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex gap-3 text-left mt-2 pt-2 border-t border-[#00ff41]/10">
-                <div className="font-black text-black bg-[#00ff41] h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] animate-pulse">!</div>
-                <div className="flex-1">
-                  <div className="font-bold opacity-100 text-[#00ff41] mb-0.5">LATEST_HARVEST_VALUE</div>
-                  <div className="opacity-80 leading-relaxed text-[10px] font-mono">
-                    {stats?.lastBuybackAmount ? stats.lastBuybackAmount.toFixed(4) : "0.0000"} SOL
+                <div className="flex gap-3 text-left mt-2 pt-2 border-t border-[#00ff41]/10">
+                  <div className="font-black text-black bg-[#00ff41] h-5 w-5 min-w-[1.25rem] flex items-center justify-center rounded-sm text-[9px] animate-pulse">!</div>
+                  <div className="flex-1">
+                    <div className="font-bold opacity-100 text-[#00ff41] mb-0.5">LATEST_HARVEST_VALUE</div>
+                    <div className="opacity-80 leading-relaxed text-[10px] font-mono">
+                      {stats?.lastBuybackAmount ? stats.lastBuybackAmount.toFixed(4) : "0.0000"} SOL
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Vault Capacitance Small HUD (Preserved) */}
-            <div className="mt-4 pt-4 border-t border-[#00ff41]/10 space-y-3 relative z-10">
-              <div className="flex justify-between text-[9px] opacity-50 uppercase tracking-widest">
-                <span>Vault_Filling</span>
-                <span>{stats?.vaultSkr ? ((stats.vaultSkr / 100000) * 100).toFixed(0) : 0}%</span>
-              </div>
-              <div className="h-2 bg-black/60 rounded-full overflow-hidden p-[1px] border border-[#00ff41]/20">
-                <div className="h-full bg-gradient-to-r from-[#003300] to-[#00ff41] shadow-[0_0_10px_rgba(0,255,65,0.4)]" style={{ width: `${Math.min(100, (stats?.vaultSkr / 100000) * 100)}%` }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* BOTTOM HUD: CALL TO ACTION */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="border-terminal p-6 flex flex-col justify-center bg-gradient-to-r from-black to-[#001100]/40 group overflow-hidden">
-            <div className="relative z-10">
-              <h2 className="text-2xl font-black tracking-tighter mb-1 italic glow-text">OPERATOR_CLAIM_GATE</h2>
-              <p className="text-[10px] opacity-40 uppercase tracking-[0.3em] mb-4">Connect Wallet to sync localized rewards</p>
-              <div className="flex gap-4 items-center">
-                <WalletMultiButton className="!bg-[#003300] !border !border-[#00ff41] !text-[#00ff41] !shadow-[0_0_15px_rgba(0,255,65,0.2)] hover:!bg-[#005500] hover:!scale-105 !transition-all !font-mono !rounded-none !uppercase !text-xs !w-fit" />
-                <div className="hidden md:block text-[8px] opacity-20 max-w-[120px]">SECURED BY PUMP_PROTOCOL MAINNET_ALPHAv0.9.9</div>
-              </div>
-            </div>
-            <div className="absolute top-0 right-0 w-24 h-full bg-[#00ff41]/5 -skew-x-12 translate-x-12 group-hover:translate-x-0 transition-transform duration-700"></div>
-          </div>
-
-          {publicKey && (
-            <div className="border-terminal p-6 flex items-center justify-between gap-8 bg-[#001100]/20 animate-in slide-in-from-bottom duration-500 overflow-hidden relative">
-              <div className="space-y-1 relative z-10">
-                <div className="text-[9px] opacity-50 uppercase tracking-widest">Available_Harvest</div>
-                <div className="text-4xl font-black italic tabular-nums">
-                  {state.amount > 0 ? state.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
-                  <span className="text-xs opacity-30 not-italic ml-2">SKR</span>
+              {/* Vault Capacitance Small HUD (Preserved) */}
+              <div className="mt-4 pt-4 border-t border-[#00ff41]/10 space-y-3 relative z-10">
+                <div className="flex justify-between text-[9px] opacity-50 uppercase tracking-widest">
+                  <span>Vault_Filling</span>
+                  <span>{stats?.vaultSkr ? ((stats.vaultSkr / 100000) * 100).toFixed(0) : 0}%</span>
+                </div>
+                <div className="h-2 bg-black/60 rounded-full overflow-hidden p-[1px] border border-[#00ff41]/20">
+                  <div className="h-full bg-gradient-to-r from-[#003300] to-[#00ff41] shadow-[0_0_10px_rgba(0,255,65,0.4)]" style={{ width: `${Math.min(100, (stats?.vaultSkr / 100000) * 100)}%` }}></div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              <div className="flex-1 max-w-[180px] relative z-10">
-                <button
-                  onClick={handleClaim}
-                  disabled={!state.claimable || state.loading}
-                  className={`
+          {/* BOTTOM HUD: CALL TO ACTION */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border-terminal p-6 flex flex-col justify-center bg-gradient-to-r from-black to-[#001100]/40 group overflow-hidden">
+              <div className="relative z-10">
+                <h2 className="text-2xl font-black tracking-tighter mb-1 italic glow-text">OPERATOR_CLAIM_GATE</h2>
+                <p className="text-[10px] opacity-40 uppercase tracking-[0.3em] mb-4">Connect Wallet to sync localized rewards</p>
+                <div className="flex gap-4 items-center">
+                  <WalletMultiButton className="!bg-[#003300] !border !border-[#00ff41] !text-[#00ff41] !shadow-[0_0_15px_rgba(0,255,65,0.2)] hover:!bg-[#005500] hover:!scale-105 !transition-all !font-mono !rounded-none !uppercase !text-xs !w-fit" />
+                  <div className="hidden md:block text-[8px] opacity-20 max-w-[120px]">SECURED BY PUMP_PROTOCOL MAINNET_ALPHAv0.9.9</div>
+                </div>
+              </div>
+              <div className="absolute top-0 right-0 w-24 h-full bg-[#00ff41]/5 -skew-x-12 translate-x-12 group-hover:translate-x-0 transition-transform duration-700"></div>
+            </div>
+
+            {publicKey && (
+              <div className="border-terminal p-6 flex items-center justify-between gap-8 bg-[#001100]/20 animate-in slide-in-from-bottom duration-500 overflow-hidden relative">
+                <div className="space-y-1 relative z-10">
+                  <div className="text-[9px] opacity-50 uppercase tracking-widest">Available_Harvest</div>
+                  <div className="text-4xl font-black italic tabular-nums">
+                    {state.amount > 0 ? state.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "0.00"}
+                    <span className="text-xs opacity-30 not-italic ml-2">SKR</span>
+                  </div>
+                </div>
+
+                <div className="flex-1 max-w-[180px] relative z-10">
+                  <button
+                    onClick={handleClaim}
+                    disabled={!state.claimable || state.loading}
+                    className={`
                        btn-terminal w-full py-4 text-xs font-black tracking-widest
                        ${(!state.claimable || state.loading) ? 'opacity-20 cursor-not-allowed grayscale' : 'hover:scale-105 active:scale-95'}
                      `}
-                >
-                  {state.loading ? 'SYNCING...' : 'INITIALIZE_HARVEST'}
-                </button>
+                  >
+                    {state.loading ? 'SYNCING...' : 'INITIALIZE_HARVEST'}
+                  </button>
+                </div>
+                {/* Visual Accent */}
+                <div className="absolute top-0 right-0 p-2 text-[8px] opacity-10 font-bold uppercase tracking-widest">ENCRYPTED_FLOW</div>
               </div>
-              {/* Visual Accent */}
-              <div className="absolute top-0 right-0 p-2 text-[8px] opacity-10 font-bold uppercase tracking-widest">ENCRYPTED_FLOW</div>
-            </div>
-          )}
+            )}
+          </div>
+
+          {/* Footer info */}
+          <div className="flex justify-between px-2 text-[8px] opacity-30 uppercase tracking-[0.5em] font-bold">
+            <span>Lat: {progress.toFixed(2)}ms</span>
+            <span>SKR_Network_Node_v0.9.9_Premium_Gated</span>
+            <span>Stability: 99.98%</span>
+          </div>
         </div>
 
-        {/* Footer info */}
-        <div className="flex justify-between px-2 text-[8px] opacity-30 uppercase tracking-[0.5em] font-bold">
-          <span>Lat: {progress.toFixed(2)}ms</span>
-          <span>SKR_Network_Node_v0.9.9_Premium_Gated</span>
-          <span>Stability: 99.98%</span>
-        </div>
-      </div>
-
-      <style jsx global>{`
+        <style jsx global>{`
         .glow-text-red {
           text-shadow: 0 0 10px rgba(255, 0, 0, 0.4), 0 0 20px rgba(255, 0, 0, 0.2);
         }
