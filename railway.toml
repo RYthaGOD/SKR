@@ -16,6 +16,6 @@ startCommand = "npx ts-node flywheel.ts"
 
 [[services]]
 name = "dashboard"
-rootDirectory = "/dashboard"
+rootDirectory = "dashboard"
 buildCommand = "npm run build"
 startCommand = "echo '--- DEBUG START ---' && ls -F && npx next start -p $PORT"

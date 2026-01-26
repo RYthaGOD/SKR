@@ -1,0 +1,43 @@
+publisher:
+  name: "YOUR_PUBLISHER_NAME" # e.g. "SKR Team"
+  website: "https://your-dashboard-url.com"
+  email: "your-email@example.com"
+  media:
+    - purpose: icon
+      uri: "./assets/icon.png" # Must be 512x512
+
+app:
+  name: "SKR Dashboard"
+  android_package: "com.skr.dashboard.twa" # We will define this in bubblewrap
+  urls:
+    license_url: "https://your-dashboard-url.com/license"
+    privacy_policy_url: "https://your-dashboard-url.com/privacy"
+    copyright_url: "https://your-dashboard-url.com/copyright"
+    website: "https://your-dashboard-url.com"
+  media:
+    - purpose: icon
+      uri: "./assets/icon.png"
+
+release:
+  media:
+    - purpose: icon
+      uri: "./assets/icon.png"
+    - purpose: screenshot
+      uri: "./assets/screenshot1.png" # 1080x1920 or 1920x1080
+    - purpose: screenshot
+      uri: "./assets/screenshot2.png"
+    - purpose: screenshot
+      uri: "./assets/screenshot3.png"
+    - purpose: screenshot
+      uri: "./assets/screenshot4.png"
+    - purpose: feature_graphic
+      uri: "./assets/feature_graphic.png" # 1024x500 (check docs, usually optional but good)
+  files:
+    - purpose: install
+      uri: "./app-release-signed.apk" # The output from bubblewrap
+  catalog:
+    en-US:
+      name: "SKR Dashboard"
+      short_description: "Manage your SKR assets and claim rewards."
+      long_description: "The official dashboard for the SKR ecosystem. Track fees, claim rewards, and manage your portfolio."
+      new_in_version: "Initial Release"
