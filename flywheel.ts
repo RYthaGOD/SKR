@@ -38,6 +38,8 @@ async function getMintProgram(mint: PublicKey): Promise<PublicKey> {
     return owner;
 }
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 const PUMP_PROGRAM_ID = new PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
 function getBondingCurveAddress(mintStr: string): PublicKey {
     const mint = new PublicKey(mintStr);
