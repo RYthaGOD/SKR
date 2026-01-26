@@ -499,8 +499,22 @@ app.post('/api/claim', async (req, res) => {
         console.log(`[API] User ${address} claiming ${finalAmount.toFixed(2)} SKR (Epoch ${currentEpoch})...`);
 
         // --- DYNAMIC BURN CALCULATION ---
+
+        // Helper to detect program ID
+        const getProgramId = async (mint: PublicKey) => {
+            const info = await connection.getAccountInfo(mint);
+            if (info && info.owner.equals(TOKEN_2022_PROGRAM_ID)) return TOKEN_2022_PROGRAM_ID;
+            return TOKEN_PROGRAM_ID; // Default to V1
+        };
+
+        const skrPubkey = new PublicKey(SKR_MINT);
+        const isgPubkey = new PublicKey(ISG_MINT);
+
+        const skrProgramId = await getProgramId(skrPubkey);
+        const isgProgramId = await getProgramId(isgPubkey);
+
         // 1. Get Value of SKR in SOL
-        const skrMintInfo = await getMint(connection, new PublicKey(SKR_MINT));
+        const skrMintInfo = await getMint(connection, skrPubkey, "confirmed", skrProgramId);
         const solMint = "So11111111111111111111111111111111111111112"; // Wrapped SOL
 
         const skrLamports = Math.floor(finalAmount * Math.pow(10, skrMintInfo.decimals));
@@ -519,7 +533,7 @@ app.post('/api/claim', async (req, res) => {
         const burnValueLamports = Math.floor(burnValueSol * 1_000_000_000);
         const solToIsgQuote = await Jupiter.getQuote(solMint, ISG_MINT, burnValueLamports);
 
-        const isgMintInfo = await getMint(connection, new PublicKey(ISG_MINT));
+        const isgMintInfo = await getMint(connection, isgPubkey, "confirmed", isgProgramId);
         const isgBurnAmount = parseInt(solToIsgQuote.outAmount) / Math.pow(10, isgMintInfo.decimals);
 
         console.log(`[API] ISG Burn Required: ${isgBurnAmount.toFixed(4)} ISG`);
