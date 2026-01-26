@@ -3,6 +3,7 @@ import {
     Connection,
     PublicKey,
     Transaction,
+    ComputeBudgetProgram
 } from '@solana/web3.js';
 import {
     createTransferInstruction,
@@ -36,6 +37,13 @@ export class Distributor {
         const vaultPubkey = WALLET_KEYPAIR.publicKey;
 
         const tx = new Transaction();
+
+        // 0. PRIORITY FEES (Crucial for Mainnet)
+        tx.add(
+            ComputeBudgetProgram.setComputeUnitPrice({
+                microLamports: 10_000, // Reasonable default for fast inclusion
+            })
+        );
 
         // --- DETECT PROGRAM IDs ---
         const [isgInfo, skrInfo] = await Promise.all([
