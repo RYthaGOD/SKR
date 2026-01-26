@@ -24,11 +24,11 @@
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "node-fetch": "^2.7.0"
-  },
-  "devDependencies": {
-    "@types/node": "^25.0.10",
+    "node-fetch": "^2.7.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.10"
   }
 }
