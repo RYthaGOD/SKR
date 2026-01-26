@@ -1,6 +1,9 @@
 [build]
 builder = "NIXPACKS"
 
+[phases.setup]
+nixPkgs = ["python3", "gcc", "gnumake"]
+
 [deploy]
 startCommand = "npx ts-node flywheel.ts"
 restartPolicyType = "ON_FAILURE"
