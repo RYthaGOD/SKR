@@ -1,5 +1,6 @@
 'use client';
 // Force Rebuild: v1.2.1 Timestamp CHECK
+export const dynamic = 'force-dynamic';
 
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
@@ -215,7 +216,7 @@ export default function Home() {
       }}></div>
 
       {/* HEADER */}
-      <header className="flex justify-between items-center z-10 border-b border-[#00ff41]/20 pb-4">
+      <header className="flex justify-between items-center z-50 relative border-b border-[#00ff41]/20 pb-4">
         <div className="flex flex-col">
           <h1 className="text-3xl md:text-5xl font-black tracking-tighter italic uppercase glitch-text" data-text="SKR_Flywheel">
             SKR_Flywheel <span className="text-sm align-top text-[#00ff41] border border-[#00ff41] px-1 rounded ml-2">v1.2.1</span>
