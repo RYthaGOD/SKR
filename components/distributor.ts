@@ -3,167 +3,87 @@ import {
     Connection,
     PublicKey,
     Transaction,
-    sendAndConfirmTransaction
 } from '@solana/web3.js';
 import {
     createTransferInstruction,
     getAssociatedTokenAddress,
     createAssociatedTokenAccountIdempotentInstruction,
-    getAccount,
-    getMint, // Added
-    Mint,   // Added
-    TokenAccountNotFoundError,
-    TokenInvalidAccountOwnerError
+    createBurnInstruction,
+    getMint,
+    TOKEN_2022_PROGRAM_ID
 } from '@solana/spl-token';
-import { RPC_URL, WALLET_KEYPAIR, SKR_MINT, ISG_MINT, EXCLUDED_ADDRESSES, MIN_REWARD_TOKENS } from '../config';
-import { Tracker } from './tracker';
+import { RPC_URL, WALLET_KEYPAIR, SKR_MINT, ISG_MINT } from '../config';
 
 const connection = new Connection(RPC_URL, "confirmed");
 
 /**
- * Distributor Component
- * Distributes SKR to holders based on Tracker points.
+ * Production Distributor
+ * Handles secure Claim Transactions.
  */
 export class Distributor {
 
     /**
-     * Calculate Rewards per User
+     * Create Claim Transaction
+     * - Burns ISG from User
+     * - Transfers SKR from Vault (Bot) to User
+     * - Partially signed by Bot (SKR Source)
      */
-    static calculateRewards(totalSkrToDistribute: number) {
-        // 1. Get Holders & Total Points
-        let holders = Tracker.getEligibleHolders();
-
-        // 2. FILTER EXCLUSIONS
-        // Remove explicitly excluded addresses (Curve, LP, Creator)
-        // AND remove the Source Wallet (Self) to be safe.
-        const sourceAddress = WALLET_KEYPAIR.publicKey.toBase58();
-        const exclusions = new Set([...EXCLUDED_ADDRESSES, sourceAddress]);
-
-        holders = holders.filter(h => !exclusions.has(h.address));
-
-        // 3. Recalculate Total Points after exclusion
-        // If we remove the LP (which might have huge points), the "TotalPoints" drops,
-        // increasing the share for everyone else. This is CORRECT.
-        const totalPoints = holders.reduce((sum, h) => sum + h.points, 0);
-
-        if (totalPoints === 0) return [];
-
-        return holders.map(h => ({
-            address: h.address,
-            // Simple Pro-Rata: (UserPoints / TotalPoints) * TotalPot
-            amount: totalSkrToDistribute * (h.points / totalPoints)
-        }));
-    }
-
-    /**
-     * Distribute Tokens
-     * Batches transfers into transactions (Max 12 per TX).
-     */
-    static async distribute(totalSkrToDistribute: number) {
-        console.log(`[Distributor] Starting Distribution of ${totalSkrToDistribute} SKR...`);
-
-        let rewards = this.calculateRewards(totalSkrToDistribute);
-
-        // 4. FILTER DUST (Cost Protection)
-        // If reward < MIN_REWARD_TOKENS, skip.
-        const initialCount = rewards.length;
-        rewards = rewards.filter(r => r.amount >= MIN_REWARD_TOKENS);
-        const dustedCount = initialCount - rewards.length;
-
-        if (rewards.length === 0) {
-            console.log(`[Distributor] No eligible holders (All ${dustedCount} were dust).`);
-            return;
-        }
-
-        console.log(`[Distributor] Distributing to ${rewards.length} users (Filtered ${dustedCount} dust accounts).`);
-
-        // Placeholder Check
-        if (SKR_MINT.includes("REPLACE")) {
-            console.warn("[Distributor] SKR_MINT is placeholder. Skipping actual sends.");
-            return;
-        }
-
+    static async createClaimTransaction(userAddress: string, skrAmount: number, isgBurnAmount: number): Promise<Transaction> {
         const skrMint = new PublicKey(SKR_MINT);
-        const sourceWallet = WALLET_KEYPAIR.publicKey;
+        const isgMint = new PublicKey(ISG_MINT);
+        const userPubkey = new PublicKey(userAddress);
+        const vaultPubkey = WALLET_KEYPAIR.publicKey;
 
-        // Ensure Source has ATAs
-        const sourceATA = await getAssociatedTokenAddress(skrMint, sourceWallet);
+        const tx = new Transaction();
 
-        // BATCHING
-        const BATCH_SIZE = 12;
+        // 1. Burn ISG (User Instruction)
+        const userISG = await getAssociatedTokenAddress(isgMint, userPubkey, false, TOKEN_2022_PROGRAM_ID);
+        const isgMintInfo = await getMint(connection, isgMint, "confirmed", TOKEN_2022_PROGRAM_ID);
+        const isgRaw = Math.floor(isgBurnAmount * Math.pow(10, isgMintInfo.decimals));
 
-        // REFACTORED: Dynamic Decimal Fetching
-        // We fetch the Mint info ONCE to ensure we use the correct decimals.
-        let mintInfo: any = null;
-        try {
-            mintInfo = await getMint(connection, skrMint);
-        } catch (e) {
-            console.error("[Distributor] Failed to fetch Mint Info. Defaulting to 6 decimals (RISKY).", e);
-        }
-        const decimals = mintInfo ? mintInfo.decimals : 6;
-        console.log(`[Distributor] Using Decimals: ${decimals}`);
+        tx.add(
+            createBurnInstruction(
+                userISG,      // Account to burn from
+                isgMint,      // Mint
+                userPubkey,   // Owner
+                isgRaw,       // Amount
+                [],
+                TOKEN_2022_PROGRAM_ID
+            )
+        );
 
-        for (let i = 0; i < rewards.length; i += BATCH_SIZE) {
-            const batch = rewards.slice(i, i + BATCH_SIZE);
-            const tx = new Transaction();
-            let instructionCount = 0;
+        // 2. Transfer SKR (Vault Instruction)
+        const vaultSKR = await getAssociatedTokenAddress(skrMint, vaultPubkey);
+        const userSKR = await getAssociatedTokenAddress(skrMint, userPubkey);
 
-            console.log(`[Distributor] Preparing Batch ${Math.floor(i / BATCH_SIZE) + 1}...`);
+        tx.add(
+            createAssociatedTokenAccountIdempotentInstruction(
+                userPubkey,   // Payer (User)
+                userSKR,      // ATA
+                userPubkey,   // Owner
+                skrMint       // Mint
+            )
+        );
 
-            for (const reward of batch) {
-                if (reward.amount <= 0) continue;
+        const skrMintInfo = await getMint(connection, skrMint);
+        const skrRaw = Math.floor(skrAmount * Math.pow(10, skrMintInfo.decimals));
 
-                const rawAmount = Math.floor(reward.amount * Math.pow(10, decimals));
+        tx.add(
+            createTransferInstruction(
+                vaultSKR,
+                userSKR,
+                vaultPubkey,
+                skrRaw
+            )
+        );
 
-                if (rawAmount === 0) continue;
+        tx.feePayer = userPubkey;
+        const { blockhash } = await connection.getLatestBlockhash("finalized");
+        tx.recentBlockhash = blockhash;
 
-                try {
-                    const destWallet = new PublicKey(reward.address);
-                    const destATA = await getAssociatedTokenAddress(skrMint, destWallet);
+        // Partial Sign
+        tx.partialSign(WALLET_KEYPAIR);
 
-                    // 1. Create ATA if needed (Idempotent = only if not exists)
-                    // This costs rent (~0.002 SOL) for the sender if account doesn't exist.
-                    tx.add(
-                        createAssociatedTokenAccountIdempotentInstruction(
-                            sourceWallet, // Payer
-                            destATA,      // Associated Token Account
-                            destWallet,   // Owner
-                            skrMint       // Mint
-                        )
-                    );
-
-                    // 2. Transfer
-                    tx.add(
-                        createTransferInstruction(
-                            sourceATA,
-                            destATA,
-                            sourceWallet,
-                            rawAmount
-                        )
-                    );
-
-                    instructionCount += 2;
-
-                } catch (e) {
-                    console.error(`[Distributor] Error preparing reward for ${reward.address}:`, e);
-                }
-            }
-
-            if (instructionCount > 0) {
-                try {
-                    const sig = await sendAndConfirmTransaction(connection, tx, [WALLET_KEYPAIR]);
-                    console.log(`[Distributor] Batch Sent: https://solscan.io/tx/${sig}`);
-                } catch (e) {
-                    // Log error but continue to next batch?
-                    console.error(`[Distributor] Batch Failed (May need to retry manually):`, e);
-                }
-            } else {
-                console.log(`[Distributor] Empty batch, skipping.`);
-            }
-        }
-
-        // After successful distribution... Reset Points?
-        // YES, per plan "Daily Epoch + Reset".
-        Tracker.resetPoints();
+        return tx;
     }
 }

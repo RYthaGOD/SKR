@@ -1,12 +1,23 @@
 
-import fetch from 'node-fetch'; // Ensure project uses 'node-fetch' or native fetch if Node 18+
+// import fetch from 'node-fetch'; // Using native fetch
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js';
 import { WALLET_KEYPAIR, RPC_URL, SLIPPAGE_BPS } from '../config';
 
 const connection = new Connection(RPC_URL, "confirmed");
-const JUP_API = "https://quote-api.jup.ag/v6";
+const JUP_API = process.env.JUPITER_API_URL || "https://public.jupiterapi.com";
 
 export class Jupiter {
+
+    static async getQuote(inputMint: string, outputMint: string, amountLamports: number) {
+        const quoteUrl = `${JUP_API}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amountLamports}&slippageBps=${SLIPPAGE_BPS}`;
+        const quoteResponse = await fetch(quoteUrl);
+        const quoteData = await quoteResponse.json();
+
+        if (!quoteData || quoteData.error) { // @ts-ignore
+            throw new Error(`Jupiter Quote Error: ${JSON.stringify(quoteData)}`);
+        }
+        return quoteData;
+    }
 
     /**
      * Swap SOL for Token (SKR)
@@ -23,14 +34,7 @@ export class Jupiter {
 
         try {
             // 1. Get Quote
-            const quoteUrl = `${JUP_API}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${inputAmountLamports}&slippageBps=${SLIPPAGE_BPS}`;
-            const quoteResponse = await fetch(quoteUrl);
-            const quoteData = await quoteResponse.json();
-
-            if (!quoteData || quoteData.error) {
-                throw new Error(`Jupiter Quote Error: ${JSON.stringify(quoteData)}`);
-            }
-
+            const quoteData = await this.getQuote(inputMint, outputMint, inputAmountLamports);
             console.log(`[Jupiter] Quote received. Est. Output: ${quoteData.outAmount} units.`);
 
             // 2. Get Swap Transaction

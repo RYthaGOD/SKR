@@ -6,27 +6,108 @@ import {
     EPOCH_DURATION_MS,
     MIN_SOL_TO_CLAIM,
     RPC_URL,
-    WALLET_KEYPAIR // Added Import
+    WALLET_KEYPAIR,
+    MIN_REWARD_TOKENS,
+    RESERVE_SOL
 } from './config';
 import { Tracker } from './components/tracker';
 import { Distributor } from './components/distributor';
+import fs from 'fs';
+import path from 'path';
 import { PumpPortal } from './utils/pumportal';
-import { Jupiter } from './utils/jupiter'; // Import Jupiter
+import { Jupiter } from './utils/jupiter';
 import { Connection, PublicKey } from '@solana/web3.js';
+import { getMint, getAssociatedTokenAddress, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'; // Added
 
 const connection = new Connection(RPC_URL, "confirmed");
 
+/**
+ * Helper to detect Token Program ID for a mint (Cached)
+ */
+const programCache: Record<string, PublicKey> = {};
+async function getMintProgram(mint: PublicKey): Promise<PublicKey> {
+    const key = mint.toBase58();
+    if (programCache[key]) return programCache[key];
+
+    const info = await connection.getAccountInfo(mint);
+    const owner = (info && info.owner.equals(TOKEN_2022_PROGRAM_ID)) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
+    programCache[key] = owner;
+    return owner;
+}
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 let isRunning = false;
 let lastClaimTime = 0;
-const CLAIM_INTERVAL_MS = 60 * 60 * 1000; // Check/Claim Fees every 1 Hour
+const CLAIM_INTERVAL_MS = 5 * 60 * 1000; // Check/Claim Fees every 5 Minutes
 
 let lastEpochTime = Date.now();
+
+const STATS_FILE = path.join(__dirname, './stats.json');
+
+// Track Cycle State for Dashboard
+let flywheelState = {
+    status: "IDLE",
+    lastCycleTime: 0,
+    cycleCount: 0,
+    totalSkrDistributed: 0,
+    totalIsgBurned: 0,
+    systemPressure: 0.1, // Synthetic value (0.0 to 1.0) for UI vibration
+    history: {
+        isgPrice: [] as number[],
+        skrPrice: [] as number[],
+        vaultSol: [] as number[]
+    },
+    logs: [] as string[]
+};
+
+// PERSISTENCE: Load initial state
+if (fs.existsSync(STATS_FILE)) {
+    try {
+        const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf-8'));
+        flywheelState = { ...flywheelState, ...data };
+        // We don't restore logs as they get bloated, just the counters.
+    } catch (e) {
+        console.error("[Flywheel] Failed to load stats.json", e);
+    }
+}
+
+const saveStats = () => {
+    const { logs, status, ...data } = flywheelState;
+    fs.writeFileSync(STATS_FILE, JSON.stringify(data, null, 2));
+};
+
+const updateHistory = (isg: number, skr: number, sol: number) => {
+    const h = flywheelState.history;
+    h.isgPrice.push(isg);
+    h.skrPrice.push(skr);
+    h.vaultSol.push(sol);
+
+    // Keep last 24 points
+    if (h.isgPrice.length > 24) {
+        h.isgPrice.shift();
+        h.skrPrice.shift();
+        h.vaultSol.shift();
+    }
+
+    // Update system pressure based on recent volatility or activity
+    flywheelState.systemPressure = Math.min(1.0, 0.1 + (flywheelState.cycleCount % 10) / 20 + Math.random() * 0.1);
+
+    saveStats();
+};
+
+const addFlywheelLog = (msg: string) => {
+    console.log(msg);
+    flywheelState.logs.unshift(`[${new Date().toLocaleTimeString()}] ${msg.replace('[Flywheel] ', '')}`);
+    if (flywheelState.logs.length > 50) flywheelState.logs.pop(); // Keep last 50
+    saveStats();
+};
 
 /**
  * Main Flywheel Loop
  */
 async function main() {
-    console.log("Starting SKR Flywheel...");
+    addFlywheelLog("Starting SKR Flywheel...");
 
     // Initial run
     await runCycle();
@@ -34,14 +115,15 @@ async function main() {
     // Loop
     setInterval(async () => {
         if (isRunning) {
-            console.log("[Flywheel] Previous cycle still running. Skipping...");
+            addFlywheelLog("Previous cycle still running. Skipping...");
             return;
         }
         try {
             isRunning = true;
             await runCycle();
-        } catch (e) {
+        } catch (e: any) {
             console.error("[Flywheel] Cycle Error:", e);
+            addFlywheelLog(`Cycle Error: ${e.message}`);
         } finally {
             isRunning = false;
         }
@@ -49,86 +131,50 @@ async function main() {
 }
 
 /**
- * The Cycle Logic
+ * The Cycle Logic (Maintenance only)
  */
 async function runCycle() {
     const now = Date.now();
-    console.log(`\n--- CYCLE START [${new Date(now).toISOString()}] ---`);
+    flywheelState.status = "UPDATING_STATS";
+    flywheelState.lastCycleTime = now;
+    flywheelState.cycleCount++;
+    addFlywheelLog(`--- Starting Maintenance Cycle #${flywheelState.cycleCount} ---`);
 
-    // 1. Snapshot Holders (Points += Balance * Time)
-    // Applies to ISG Holders
-    await Tracker.snapshotAndScore();
-
-    // 2. Fees & Buyback (Blind Claim Strategy)
-    // Since we can't check fees easily, we attempt to claim every Hour.
-    // If successful, we get SOL. We then check Wallet Balance increase? 
-    // Simplified: "Try Claim" -> "Check Wallet Balance" -> "Swap Surplus".
-    // Actually, we can just Check Wallet Balance *before* and *after*.
-    // Or just check Wallet Balance for > MIN_SOL_TO_CLAIM + Buffer.
+    // 1. Check Fees & Buyback
     try {
         if (now - lastClaimTime > CLAIM_INTERVAL_MS) {
-            console.log(`[Flywheel] Blind Claim Check (Every 1h)...`);
-
-            // A. Claim
-            try {
-                await PumpPortal.claimCreatorFees({ mint: ISG_MINT });
-                console.log("[Flywheel] Fees Claimed (if any).");
-            } catch (claimErr) {
-                console.warn("[Flywheel] Claim attempt failed (maybe no fees/error):", claimErr);
-            }
-
+            flywheelState.status = "CLAIMING_FEES";
+            await PumpPortal.claimCreatorFees({ mint: ISG_MINT });
+            addFlywheelLog("Blind Claim attempt completed.");
             lastClaimTime = now;
-
-            // Wait for balance update
             await new Promise(r => setTimeout(r, 10000));
-
-            // B. Check Balance & Swap
-            // We check the SOL balance of the wallet directly.
-            // If Balance > Reserve (e.g. 0.05), we swap the excess.
-            const balance = await connection.getBalance(WALLET_KEYPAIR.publicKey);
-            const balanceSol = balance / 1_000_000_000;
-            const RESERVE_SOL = 0.05; // Keep 0.05 SOL for gas
-
-            if (balanceSol > RESERVE_SOL + 0.02) { // Only swap if we have meaningful surplus (> 0.02)
-                const buyAmount = balanceSol - RESERVE_SOL;
-                console.log(`[Flywheel] Wallet Balance: ${balanceSol.toFixed(4)} SOL. Swapping surplus: ${buyAmount.toFixed(4)} SOL`);
-
-                // REFACTORED: Use Jupiter V6 for Best Price Routing
-                await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
-            } else {
-                console.log(`[Flywheel] Wallet Balance (${balanceSol.toFixed(4)}) too low to swap. Reserve: ${RESERVE_SOL}`);
-            }
-        } else {
-            console.log(`[Flywheel] Skipping Fee Claim (Last checked ${(now - lastClaimTime) / 60000} mins ago).`);
         }
     } catch (e) {
-        console.error("[Flywheel] Fee/Buyback Error (skipping this cycle):", e);
+        console.warn("[Flywheel] Claim check skipped.");
     }
 
-    // 3. Distribution (Epoch Check)
-    if (now - lastEpochTime > EPOCH_DURATION_MS) {
-        console.log(`[Flywheel] EPOCH END. Distributing Rewards...`);
-
-        // Determine how much SKR we have to distribute.
-        // We distribute EVERYTHING in the wallet? Or tracks specific "Pot"?
-        // Simpler: Distribute ALL SKR in the wallet.
-        try {
-            const skrBalance = await getTokenBalance(SKR_MINT);
-            if (skrBalance > 0) {
-                await Distributor.distribute(skrBalance);
-                lastEpochTime = now;
-            } else {
-                console.log("[Flywheel] No SKR to distribute.");
-            }
-        } catch (e) {
-            console.error("[Flywheel] Distribution Error:", e);
+    // 2. Buyback surplus SOL
+    try {
+        const balance = await connection.getBalance(WALLET_KEYPAIR.publicKey);
+        const balanceSol = balance / 1e9;
+        if (balanceSol > RESERVE_SOL + 0.01) {
+            const buyAmount = (balanceSol - RESERVE_SOL) * 0.9;
+            addFlywheelLog(`Buying SKR with surplus ${buyAmount.toFixed(4)} SOL`);
+            await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
         }
-    } else {
-        const timeLeft = (EPOCH_DURATION_MS - (now - lastEpochTime)) / 1000 / 60;
-        console.log(`[Flywheel] Epoch continues. Time until distribution: ${timeLeft.toFixed(1)} mins`);
+    } catch (e) { }
+
+    // 3. Epoch Cleanup (Reset Claim Flags if needed)
+    if (now - lastEpochTime > EPOCH_DURATION_MS) {
+        // Reset claims log for new users to claim again? 
+        // Or we just allow continuous claiming of the available balance.
+        // Liquid protocol: Users can claim their share of whatever is in the bot NOW.
+        lastEpochTime = now;
+        addFlywheelLog("New Epoch Started. Shares refreshed.");
     }
 
-    console.log("--- CYCLE END ---");
+    addFlywheelLog("--- CYCLE END ---");
+    flywheelState.status = "READY";
 }
 
 /* --- HELPERS --- */
@@ -161,10 +207,199 @@ async function checkClaimableFees(): Promise<number> {
 
 async function getTokenBalance(mint: string): Promise<number> {
     if (mint.includes("REPLACE")) return 0;
-    // ... Fetch SPL balance logic ...
-    // Placeholder
-    return 0;
+    try {
+        const mintPubkey = new PublicKey(mint);
+        const walletPubkey = WALLET_KEYPAIR.publicKey;
+
+        const programId = await getMintProgram(mintPubkey);
+
+        // Get ATA
+        const ata = await getAssociatedTokenAddress(mintPubkey, walletPubkey, false, programId);
+
+        // Fetch Balance
+        const balance = await connection.getTokenAccountBalance(ata);
+        return balance.value.uiAmount || 0;
+    } catch (e: any) {
+        console.warn(`[Flywheel] Could not fetch balance for ${mint}: ${e.message}`);
+        return 0; // Return 0 if account doesn't exist
+    }
 }
 
 // Start
-main();
+// --- SERVER & API ---
+import express from 'express';
+import cors from 'cors';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+const PORT = process.env.PORT || 3001;
+
+// 1. Get Balance & Eligibility
+let statsCache: any = null;
+let lastStatsFetch = 0;
+const CACHE_TTL = 15000; // 15 Seconds
+
+app.get('/api/stats', async (req, res) => {
+    const now = Date.now();
+    if (statsCache && (now - lastStatsFetch < CACHE_TTL)) {
+        return res.json(statsCache);
+    }
+
+    try {
+        const solMint = "So11111111111111111111111111111111111111112";
+
+        // Helper to get price in SOL
+        const getPriceInSol = async (mint: string): Promise<number> => {
+            if (mint.includes("REPLACE")) return 0;
+            try {
+                const mintPubkey = new PublicKey(mint);
+                const programId = await getMintProgram(mintPubkey);
+
+                // Quote 1 Unit
+                const mintInfo = await getMint(connection, mintPubkey, "confirmed", programId);
+                const oneUnit = Math.pow(10, mintInfo.decimals);
+
+                await sleep(300); // Space out requests
+                const quote = await Jupiter.getQuote(mint, solMint, oneUnit);
+                return parseInt(quote.outAmount) / 1_000_000_000;
+            } catch (e: any) {
+                console.warn(`Failed to fetch price for ${mint}`, e.message);
+                return 0;
+            }
+        };
+
+        const isgPrice = await getPriceInSol(ISG_MINT);
+        await sleep(300);
+        const skrPrice = await getPriceInSol(SKR_MINT);
+
+        const balance = await connection.getBalance(WALLET_KEYPAIR.publicKey);
+        const skrBalance = await getTokenBalance(SKR_MINT);
+
+        // Update Backend History
+        updateHistory(isgPrice, skrPrice, balance / 1e9);
+
+        console.log(`[API] Cache Refreshed: SKR Balance = ${skrBalance}, Wallet SOL = ${balance / 1e9}`);
+
+        statsCache = {
+            isgPriceSol: isgPrice,
+            skrPriceSol: skrPrice,
+            vaultSol: balance / 1_000_000_000,
+            vaultSkr: skrBalance,
+            systemPressure: flywheelState.systemPressure,
+            history: flywheelState.history,
+            analytics: {
+                totalDistributed: flywheelState.totalSkrDistributed,
+                totalBurned: flywheelState.totalIsgBurned,
+                leaderboard: Tracker.getTopHolders(5).map((h: any) => ({
+                    address: h.address ? (h.address.slice(0, 4) + '...' + h.address.slice(-4)) : "N/A",
+                    points: Math.round(h.points || 0)
+                }))
+            },
+            cycleParams: {
+                status: flywheelState.status,
+                lastCycle: flywheelState.lastCycleTime,
+                nextCycle: flywheelState.lastCycleTime + TRACKER_INTERVAL_MS,
+                count: flywheelState.cycleCount,
+                logs: flywheelState.logs
+            }
+        };
+        lastStatsFetch = now;
+        res.json(statsCache);
+
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Stats Error" });
+    }
+});
+
+app.get('/api/balance/:address', async (req, res) => {
+    const { address } = req.params;
+    try {
+        const balance = await Tracker.getUserBalance(address);
+        if (balance <= 0) {
+            return res.json({ points: 0, amount: 0, claimable: false });
+        }
+
+        const skrBalance = await getTokenBalance(SKR_MINT);
+        const supply = await Tracker.getEligibleSupply();
+
+        // Share = (UserBalance / EligibleSupply) * Pot
+        const share = (balance / supply) * skrBalance;
+
+        res.json({
+            points: balance,
+            amount: share,
+            claimable: share >= MIN_REWARD_TOKENS
+        });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "On-Chain Error" });
+    }
+});
+
+// 2. Create Claim Transaction
+app.post('/api/claim', async (req, res) => {
+    const { address } = req.body;
+    try {
+        const balance = await Tracker.getUserBalance(address);
+        if (balance <= 0) return res.status(400).json({ error: "No holdings detected on-chain" });
+
+        const skrBalance = await getTokenBalance(SKR_MINT);
+        const supply = await Tracker.getEligibleSupply();
+        const claimAmount = (balance / supply) * skrBalance;
+
+        if (claimAmount < MIN_REWARD_TOKENS) return res.status(400).json({ error: "Claim too small. Wait for more fees." });
+
+        console.log(`[API] User ${address} claiming ${claimAmount.toFixed(2)} SKR...`);
+
+        // --- DYNAMIC BURN CALCULATION ---
+        // 1. Get Value of SKR in SOL
+        // We use 1 Unit of SKR to find price, then multiply? Or just quote the whole amount.
+        // Quote whole amount is safer for slippage/depth.
+        const skrMintInfo = await getMint(connection, new PublicKey(SKR_MINT));
+        const solMint = "So11111111111111111111111111111111111111112"; // Wrapped SOL
+
+        const skrLamports = Math.floor(claimAmount * Math.pow(10, skrMintInfo.decimals));
+
+        // Quote: SKR -> SOL
+        const skrToSolQuote = await Jupiter.getQuote(SKR_MINT, solMint, skrLamports);
+        const valueInSol = parseInt(skrToSolQuote.outAmount) / 1_000_000_000;
+
+        // 2. Target Burn Value = 20% of Value
+        const burnValueSol = valueInSol * 0.20;
+        console.log(`[API] Claim Value: ${valueInSol.toFixed(4)} SOL. Burn Target: ${burnValueSol.toFixed(4)} SOL (20%)`);
+
+        // 3. Get Amount of ISG required to match Burn Value
+        // Quote: SOL -> ISG (How much ISG do I get for X SOL?) -> That is the Burn Amount.
+        // Input: BurnValueSol (Lamports)
+        const burnValueLamports = Math.floor(burnValueSol * 1_000_000_000);
+        const solToIsgQuote = await Jupiter.getQuote(solMint, ISG_MINT, burnValueLamports);
+
+        const isgMintInfo = await getMint(connection, new PublicKey(ISG_MINT));
+        const isgBurnAmount = parseInt(solToIsgQuote.outAmount) / Math.pow(10, isgMintInfo.decimals);
+
+        console.log(`[API] ISG Burn Required: ${isgBurnAmount.toFixed(4)} ISG`);
+
+        // 4. Create Transaction
+        const tx = await Distributor.createClaimTransaction(address, claimAmount, isgBurnAmount);
+
+        // Update analytics
+        flywheelState.totalIsgBurned += isgBurnAmount;
+
+        // Serialize and Return
+        const serializedTx = tx.serialize({ requireAllSignatures: false }).toString('base64');
+        res.json({ transaction: serializedTx, burnAmount: isgBurnAmount, claimAmount });
+
+    } catch (e) {
+        console.error("Claim Error:", e);
+        res.status(500).json({ error: "Failed to create transaction" });
+    }
+});
+
+// Start Server & Bot
+app.listen(PORT, () => {
+    console.log(`[API] Server running on port ${PORT}`);
+    main(); // Start Flywheel Loop
+});
+
