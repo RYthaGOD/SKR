@@ -10,7 +10,8 @@ import {
     createAssociatedTokenAccountIdempotentInstruction,
     createBurnInstruction,
     getMint,
-    TOKEN_2022_PROGRAM_ID
+    TOKEN_2022_PROGRAM_ID,
+    TOKEN_PROGRAM_ID
 } from '@solana/spl-token';
 import { RPC_URL, WALLET_KEYPAIR, SKR_MINT, ISG_MINT } from '../config';
 
@@ -36,9 +37,24 @@ export class Distributor {
 
         const tx = new Transaction();
 
+        // --- DETECT PROGRAM IDs ---
+        const [isgInfo, skrInfo] = await Promise.all([
+            connection.getAccountInfo(isgMint),
+            connection.getAccountInfo(skrMint)
+        ]);
+
+        // Default to V1 (TOKEN_PROGRAM_ID) unless explicitly 2022
+        const realIsgProgramId = (isgInfo && isgInfo.owner.equals(TOKEN_2022_PROGRAM_ID))
+            ? TOKEN_2022_PROGRAM_ID
+            : TOKEN_PROGRAM_ID;
+
+        const realSkrProgramId = (skrInfo && skrInfo.owner.equals(TOKEN_2022_PROGRAM_ID))
+            ? TOKEN_2022_PROGRAM_ID
+            : TOKEN_PROGRAM_ID;
+
         // 1. Burn ISG (User Instruction)
-        const userISG = await getAssociatedTokenAddress(isgMint, userPubkey, false, TOKEN_2022_PROGRAM_ID);
-        const isgMintInfo = await getMint(connection, isgMint, "confirmed", TOKEN_2022_PROGRAM_ID);
+        const userISG = await getAssociatedTokenAddress(isgMint, userPubkey, false, realIsgProgramId);
+        const isgMintInfo = await getMint(connection, isgMint, "confirmed", realIsgProgramId);
         const isgRaw = Math.floor(isgBurnAmount * Math.pow(10, isgMintInfo.decimals));
 
         tx.add(
@@ -48,24 +64,25 @@ export class Distributor {
                 userPubkey,   // Owner
                 isgRaw,       // Amount
                 [],
-                TOKEN_2022_PROGRAM_ID
+                realIsgProgramId
             )
         );
 
         // 2. Transfer SKR (Vault Instruction)
-        const vaultSKR = await getAssociatedTokenAddress(skrMint, vaultPubkey);
-        const userSKR = await getAssociatedTokenAddress(skrMint, userPubkey);
+        const vaultSKR = await getAssociatedTokenAddress(skrMint, vaultPubkey, false, realSkrProgramId);
+        const userSKR = await getAssociatedTokenAddress(skrMint, userPubkey, false, realSkrProgramId);
 
         tx.add(
             createAssociatedTokenAccountIdempotentInstruction(
                 userPubkey,   // Payer (User)
                 userSKR,      // ATA
                 userPubkey,   // Owner
-                skrMint       // Mint
+                skrMint,      // Mint
+                realSkrProgramId
             )
         );
 
-        const skrMintInfo = await getMint(connection, skrMint);
+        const skrMintInfo = await getMint(connection, skrMint, "confirmed", realSkrProgramId);
         const skrRaw = Math.floor(skrAmount * Math.pow(10, skrMintInfo.decimals));
 
         tx.add(
@@ -73,7 +90,9 @@ export class Distributor {
                 vaultSKR,
                 userSKR,
                 vaultPubkey,
-                skrRaw
+                skrRaw,
+                [],
+                realSkrProgramId
             )
         );
 

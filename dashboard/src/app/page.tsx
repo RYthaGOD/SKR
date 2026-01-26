@@ -137,6 +137,11 @@ export default function Home() {
         body: JSON.stringify({ address: publicKey.toBase58() })
       });
 
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Server Error (${res.status}): ${text.slice(0, 100)}`);
+      }
+
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
