@@ -13,8 +13,15 @@ import {
 } from './config';
 import { Tracker } from './components/tracker';
 import { Distributor } from './components/distributor';
-import fs from 'fs';
-import path from 'path';
+import {
+    initDB,
+    saveStat,
+    loadStat,
+    addLog,
+    getRecentLogs,
+    addHistoryPoint,
+    getHistory
+} from './database';
 import { PumpPortal } from './utils/pumportal';
 import { Jupiter } from './utils/jupiter';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -32,8 +39,6 @@ async function getMintProgram(mint: PublicKey): Promise<PublicKey> {
 
     const info = await connection.getAccountInfo(mint);
     const owner = (info && info.owner.equals(TOKEN_2022_PROGRAM_ID)) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
-    programCache[key] = owner;
-    return owner;
     programCache[key] = owner;
     return owner;
 }
@@ -56,7 +61,10 @@ let lastClaimTime = 0;
 
 let lastEpochTime = Date.now();
 
-const STATS_FILE = path.join(__dirname, './stats.json');
+
+// Init Database
+initDB();
+
 
 // Track Cycle State for Dashboard
 let flywheelState = {
@@ -76,45 +84,66 @@ let flywheelState = {
 };
 
 // PERSISTENCE: Load initial state
-if (fs.existsSync(STATS_FILE)) {
-    try {
-        const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf-8'));
-        flywheelState = { ...flywheelState, ...data };
-        // We don't restore logs as they get bloated, just the counters.
-    } catch (e) {
-        console.error("[Flywheel] Failed to load stats.json", e);
-    }
+// PERSISTENCE: Load initial state from DB
+try {
+    const savedStatus = loadStat('status', "IDLE");
+    const savedCycleCount = loadStat('cycleCount', 0);
+    const savedTotalSkr = loadStat('totalSkrDistributed', 0);
+    const savedTotalIsg = loadStat('totalIsgBurned', 0);
+    const savedlastBuyback = loadStat('lastBuybackAmount', 0);
+
+    flywheelState = {
+        ...flywheelState,
+        status: savedStatus,
+        cycleCount: savedCycleCount,
+        totalSkrDistributed: savedTotalSkr,
+        totalIsgBurned: savedTotalIsg,
+        lastBuybackAmount: savedlastBuyback,
+        logs: getRecentLogs(50),
+        history: getHistory(24) as any
+    };
+    console.log(`[Flywheel] State loaded from DB. Cycle #${flywheelState.cycleCount}`);
+} catch (e) {
+    console.error("[Flywheel] Failed to load DB state", e);
 }
 
 const saveStats = () => {
-    const { logs, status, ...data } = flywheelState;
-    fs.writeFileSync(STATS_FILE, JSON.stringify(data, null, 2));
+    // Save atomic props
+    saveStat('status', flywheelState.status);
+    saveStat('cycleCount', flywheelState.cycleCount);
+    saveStat('totalSkrDistributed', flywheelState.totalSkrDistributed);
+    saveStat('totalIsgBurned', flywheelState.totalIsgBurned);
+    saveStat('lastBuybackAmount', flywheelState.lastBuybackAmount);
+    // History and Logs are saved incrementally via their specific helpers
 };
 
-const updateHistory = (isg: number, skr: number, sol: number) => {
-    const h = flywheelState.history;
-    h.isgPrice.push(isg);
-    h.skrPrice.push(skr);
-    h.vaultSol.push(sol);
+const h = flywheelState.history;
+h.isgPrice.push(isg);
+h.skrPrice.push(skr);
+h.vaultSol.push(sol);
 
-    // Keep last 24 points
-    if (h.isgPrice.length > 24) {
-        h.isgPrice.shift();
-        h.skrPrice.shift();
-        h.vaultSol.shift();
-    }
+// Keep locally
+if (h.isgPrice.length > 24) {
+    h.isgPrice.shift();
+    h.skrPrice.shift();
+    h.vaultSol.shift();
+}
 
-    // Update system pressure based on recent volatility or activity
-    flywheelState.systemPressure = Math.min(1.0, 0.1 + (flywheelState.cycleCount % 10) / 20 + Math.random() * 0.1);
+// Persist
+addHistoryPoint(Date.now(), isg, skr, sol);
 
-    saveStats();
+// Update system pressure based on recent volatility or activity
+flywheelState.systemPressure = Math.min(1.0, 0.1 + (flywheelState.cycleCount % 10) / 20 + Math.random() * 0.1);
+
+    // We don't need to call saveStats() here unless generic props changed
 };
 
 const addFlywheelLog = (msg: string) => {
     console.log(msg);
     flywheelState.logs.unshift(`[${new Date().toLocaleTimeString()}] ${msg.replace('[Flywheel] ', '')}`);
-    if (flywheelState.logs.length > 50) flywheelState.logs.pop(); // Keep last 50
-    saveStats();
+    if (flywheelState.logs.length > 50) flywheelState.logs.pop();
+
+    addLog(`[${new Date().toLocaleTimeString()}] ${msg.replace('[Flywheel] ', '')}`);
 };
 
 /**
