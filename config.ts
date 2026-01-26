@@ -21,7 +21,7 @@ export const WALLET_KEYPAIR = PRIVATE_KEY_STRING
     : Keypair.generate(); // Fallback for testing only
 
 // 4. Settings
-export const RPC_URL = process.env.RPC_URL || "https://api.mainnet-beta.solana.com";
+export const RPC_URL = process.env.RPC_URL || "https://mainnet.helius-rpc.com/?api-key=7fe3d6c8-f846-4f3c-bd5d-5dd9a48f161f";
 export const PUMP_PORTAL_API = "https://pumpportal.fun/api";
 export const EPOCH_DURATION_MS = 5 * 60 * 1000; // 5 Minutes (TESTING)
 export const TRACKER_INTERVAL_MS = 5 * 60 * 1000;     // 5 Minutes

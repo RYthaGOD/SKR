@@ -352,6 +352,9 @@ const PORT = process.env.PORT || 3001;
 let statsCache: any = null;
 let lastStatsFetch = 0;
 const CACHE_TTL = 15000; // 15 Seconds
+let leaderboardCache: any[] = [];
+let lastLeaderboardUpdate = 0;
+const LEADERBOARD_CACHE_TTL = 60 * 1000; // 1 Minute
 
 app.get('/api/stats', async (req, res) => {
     const now = Date.now();
@@ -404,10 +407,23 @@ app.get('/api/stats', async (req, res) => {
             analytics: {
                 totalDistributed: flywheelState.totalSkrDistributed,
                 totalBurned: await getIsgBurned(), // Realtime On-Chain
-                leaderboard: (await Tracker.getTopHolders(5)).map((h: any) => ({
-                    address: h.address ? (h.address.slice(0, 4) + '...' + h.address.slice(-4)) : "N/A",
-                    points: Math.round(h.points || 0)
-                }))
+                leaderboard: await (async () => {
+                    const now = Date.now();
+                    if (now - lastLeaderboardUpdate > LEADERBOARD_CACHE_TTL || leaderboardCache.length === 0) {
+                        try {
+                            console.log("[Stats] Refreshing Leaderboard...");
+                            const fresh = await Tracker.getTopHolders(5);
+                            leaderboardCache = fresh.map((h: any) => ({
+                                address: h.address ? (h.address.slice(0, 4) + '...' + h.address.slice(-4)) : "N/A",
+                                points: Math.round(h.points || 0)
+                            }));
+                            lastLeaderboardUpdate = now;
+                        } catch (e) {
+                            console.error("[Stats] Leaderboard update failed, using cache", e);
+                        }
+                    }
+                    return leaderboardCache;
+                })()
             },
             cycleParams: {
                 status: flywheelState.status,
