@@ -284,6 +284,26 @@ export default function Home() {
               </div>
               <div className="text-[8px] opacity-30 mt-2">REWARDS_CIRCULATING</div>
             </div>
+
+            {/* NEW: Vault Holdings */}
+            <div className="border-terminal p-4 flex flex-col justify-between stat-card group">
+              <div className="flex justify-between items-start">
+                <div className="text-[9px] opacity-40 uppercase tracking-tighter">VAULT_SOL_RESERVE</div>
+              </div>
+              <div className="text-3xl font-black italic text-[#00ff41]">
+                {stats?.vaultSol?.toFixed(4) || "0.0000"} <span className="text-xs opacity-50">SOL</span>
+              </div>
+              <div className="text-[8px] opacity-30 mt-2">FUEL_RODS_ACTIVE</div>
+            </div>
+            <div className="border-terminal p-4 flex flex-col justify-between stat-card group">
+              <div className="flex justify-between items-start">
+                <div className="text-[9px] opacity-40 uppercase tracking-tighter">VAULT_SKR_HOLDINGS</div>
+              </div>
+              <div className="text-3xl font-black italic text-[#00ff41]">
+                {stats?.vaultSkr?.toLocaleString() || "0"} <span className="text-xs opacity-50">SKR</span>
+              </div>
+              <div className="text-[8px] opacity-30 mt-2">READY_FOR_DEPLOYMENT</div>
+            </div>
           </div>
         </div>
 
