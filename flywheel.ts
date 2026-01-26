@@ -34,9 +34,19 @@ async function getMintProgram(mint: PublicKey): Promise<PublicKey> {
     const owner = (info && info.owner.equals(TOKEN_2022_PROGRAM_ID)) ? TOKEN_2022_PROGRAM_ID : TOKEN_PROGRAM_ID;
     programCache[key] = owner;
     return owner;
+    programCache[key] = owner;
+    return owner;
 }
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const PUMP_PROGRAM_ID = new PublicKey("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
+function getBondingCurveAddress(mintStr: string): PublicKey {
+    const mint = new PublicKey(mintStr);
+    const [bondingCurve] = PublicKey.findProgramAddressSync(
+        [Buffer.from("bonding-curve"), mint.toBuffer()],
+        PUMP_PROGRAM_ID
+    );
+    return bondingCurve;
+}
 
 let isRunning = false;
 let lastClaimTime = 0;
@@ -145,21 +155,28 @@ async function runCycle() {
     // 1. Check Fees & Buyback
     try {
         if (now - lastClaimTime > CLAIM_INTERVAL_MS) {
-            // Optimization: Only claim if we suspect fees are > MIN_SOL_TO_CLAIM
-            // Since we can't easily check ("blind claim"), we rely on the interval being long (1 hour).
-            // Optional: If we had a way to check curve balance, we'd do it here.
+            // Optimization: Real On-Chain Fee Check
+            const curve = getBondingCurveAddress(ISG_MINT);
+            const curveBalance = await connection.getBalance(curve);
+            const curveSol = curveBalance / 1e9;
+            addFlywheelLog(`Checking Curve Fees: ${curveSol.toFixed(4)} SOL (Threshold: ${MIN_SOL_TO_CLAIM})`);
 
-            flywheelState.status = "CLAIMING_FEES";
-            addFlywheelLog(`Attempting Claim (Interval: ${CLAIM_INTERVAL_MS / 60000}m)...`);
-
-            await PumpPortal.claimCreatorFees({ mint: ISG_MINT });
-
-            addFlywheelLog("Claim Check Complete.");
-            lastClaimTime = now;
-            await new Promise(r => setTimeout(r, 10000));
+            if (curveSol > MIN_SOL_TO_CLAIM) {
+                flywheelState.status = "CLAIMING_FEES";
+                addFlywheelLog(`Fees found! Claiming...`);
+                await PumpPortal.claimCreatorFees({ mint: ISG_MINT });
+                addFlywheelLog("Claim Transaction Sent.");
+                lastClaimTime = now;
+                await new Promise(r => setTimeout(r, 10000));
+            } else {
+                addFlywheelLog("Fees below threshold. Skipping claim.");
+                // Reset timer so we don't spam check? Or kept as is (1hr)
+                lastClaimTime = now;
+            }
         }
-    } catch (e) {
-        console.warn("[Flywheel] Claim check skipped.");
+    } catch (e: any) {
+        console.warn("[Flywheel] Claim check skipped.", e);
+        addFlywheelLog(`Claim Check Error: ${e.message}`);
     }
 
     // 2. Buyback surplus SOL
