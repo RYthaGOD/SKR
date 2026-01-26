@@ -20,7 +20,9 @@ import {
     addLog,
     getRecentLogs,
     addHistoryPoint,
-    getHistory
+    getHistory,
+    hasClaimed,   // Added
+    markClaimed   // Added
 } from './database';
 import { PumpPortal } from './utils/pumportal';
 import { Jupiter } from './utils/jupiter';
@@ -80,7 +82,11 @@ let flywheelState = {
         vaultSol: [] as number[]
     },
     logs: [] as string[],
-    lastBuybackAmount: 0 // New field
+    lastBuybackAmount: 0,
+    // Epoch State (Snapshots)
+    currentEpochId: 1,
+    currentEpochRate: 0, // SKR per ISG (Snapshot)
+    epochStartTime: Date.now()
 };
 
 // PERSISTENCE: Load initial state
@@ -91,6 +97,9 @@ try {
     const savedTotalSkr = loadStat('totalSkrDistributed', 0);
     const savedTotalIsg = loadStat('totalIsgBurned', 0);
     const savedlastBuyback = loadStat('lastBuybackAmount', 0);
+    const savedEpochId = loadStat('currentEpochId', 1);
+    const savedEpochRate = loadStat('currentEpochRate', 0); // Default 0
+    const savedEpochStart = loadStat('epochStartTime', Date.now());
 
     flywheelState = {
         ...flywheelState,
@@ -99,6 +108,9 @@ try {
         totalSkrDistributed: savedTotalSkr,
         totalIsgBurned: savedTotalIsg,
         lastBuybackAmount: savedlastBuyback,
+        currentEpochId: savedEpochId,
+        currentEpochRate: savedEpochRate,
+        epochStartTime: savedEpochStart,
         logs: getRecentLogs(50),
         history: getHistory(24) as any
     };
@@ -114,6 +126,9 @@ const saveStats = () => {
     saveStat('totalSkrDistributed', flywheelState.totalSkrDistributed);
     saveStat('totalIsgBurned', flywheelState.totalIsgBurned);
     saveStat('lastBuybackAmount', flywheelState.lastBuybackAmount);
+    saveStat('currentEpochId', flywheelState.currentEpochId);
+    saveStat('currentEpochRate', flywheelState.currentEpochRate);
+    saveStat('epochStartTime', flywheelState.epochStartTime);
     // History and Logs are saved incrementally via their specific helpers
 };
 
@@ -223,13 +238,29 @@ async function runCycle() {
         }
     } catch (e) { }
 
-    // 3. Epoch Cleanup (Reset Claim Flags if needed)
-    if (now - lastEpochTime > EPOCH_DURATION_MS) {
-        // Reset claims log for new users to claim again? 
-        // Or we just allow continuous claiming of the available balance.
-        // Liquid protocol: Users can claim their share of whatever is in the bot NOW.
-        lastEpochTime = now;
-        addFlywheelLog("New Epoch Started. Shares refreshed.");
+    // 3. Epoch Cleanup & Rate Snapshot
+    // Logic: If Epoch is over, we snapshot the Current Wallet Balance as the Pot for the NEXT Epoch.
+    // Users claim from this Pot.
+
+    if (now - flywheelState.epochStartTime > EPOCH_DURATION_MS) {
+        addFlywheelLog("--- END OF EPOCH ---");
+
+        // 1. Snapshot Balance and Supply
+        const currentSkrBalance = await getTokenBalance(SKR_MINT);
+        const currentSupply = await Tracker.getEligibleSupply();
+
+        // 2. Calculate New Rate
+        // If Supply is 0 (impossible), avoid NaN
+        const newRate = currentSupply > 0 ? (currentSkrBalance / currentSupply) : 0;
+
+        // 3. Update State
+        flywheelState.currentEpochId++;
+        flywheelState.currentEpochRate = newRate;
+        flywheelState.epochStartTime = now;
+
+        addFlywheelLog(`Snapshot: Pot=${currentSkrBalance}, Supply=${currentSupply}, Rate=${newRate.toFixed(6)}`);
+        addFlywheelLog(`New Epoch #${flywheelState.currentEpochId} Started.`);
+        saveStats();
     }
 
     addFlywheelLog("--- CYCLE END ---");
@@ -289,7 +320,13 @@ async function getIsgBurned(): Promise<number> {
     if (ISG_MINT.includes("REPLACE")) return 0;
     try {
         const mintPubkey = new PublicKey(ISG_MINT);
-        const mintInfo = await getMint(connection, mintPubkey);
+        // Detect Program ID first
+        const info = await connection.getAccountInfo(mintPubkey);
+        if (!info) return 0;
+
+        const programId = info.owner; // Use actual owner (Token or Token-2022)
+        const mintInfo = await getMint(connection, mintPubkey, "confirmed", programId);
+
         const currentSupply = Number(mintInfo.supply) / Math.pow(10, mintInfo.decimals);
         const initialSupply = 1_000_000_000; // Standard Pump.fun 1B Supply
 
@@ -378,6 +415,11 @@ app.get('/api/stats', async (req, res) => {
                 nextCycle: flywheelState.lastCycleTime + TRACKER_INTERVAL_MS,
                 count: flywheelState.cycleCount,
                 logs: flywheelState.logs
+            },
+            epoch: {
+                id: flywheelState.currentEpochId,
+                rate: flywheelState.currentEpochRate,
+                endsAt: flywheelState.epochStartTime + EPOCH_DURATION_MS
             }
         };
         lastStatsFetch = now;
@@ -394,19 +436,24 @@ app.get('/api/balance/:address', async (req, res) => {
     try {
         const balance = await Tracker.getUserBalance(address);
         if (balance <= 0) {
-            return res.json({ points: 0, amount: 0, claimable: false });
+            return res.json({ points: 0, amount: 0, claimable: false, reason: "No Balance" });
         }
 
-        const skrBalance = await getTokenBalance(SKR_MINT);
-        const supply = await Tracker.getEligibleSupply();
+        // Check if already claimed this epoch
+        if (hasClaimed(flywheelState.currentEpochId, address)) {
+            return res.json({ points: balance, amount: 0, claimable: false, reason: "Already Claimed This Epoch" });
+        }
 
-        // Share = (UserBalance / EligibleSupply) * Pot
-        const share = (balance / supply) * skrBalance;
+        // Calculate based on Snapshot Rate
+        const share = balance * flywheelState.currentEpochRate;
+
+        // Safety: If rate is 0 (first run), fallback to 0
 
         res.json({
             points: balance,
             amount: share,
-            claimable: share >= MIN_REWARD_TOKENS
+            claimable: share >= MIN_REWARD_TOKENS,
+            epochId: flywheelState.currentEpochId
         });
     } catch (e) {
         console.error(e);
@@ -418,25 +465,45 @@ app.get('/api/balance/:address', async (req, res) => {
 app.post('/api/claim', async (req, res) => {
     const { address } = req.body;
     try {
+        const currentEpoch = flywheelState.currentEpochId;
+        const rate = flywheelState.currentEpochRate;
+
+        // 1. Check Previous Claim
+        if (hasClaimed(currentEpoch, address)) {
+            return res.status(400).json({ error: "You have already claimed for this Epoch. Please wait for the next cycle." });
+        }
+
+        // 2. Get User Balance
         const balance = await Tracker.getUserBalance(address);
         if (balance <= 0) return res.status(400).json({ error: "No holdings detected on-chain" });
 
-        const skrBalance = await getTokenBalance(SKR_MINT);
-        const supply = await Tracker.getEligibleSupply();
-        const claimAmount = (balance / supply) * skrBalance;
+        // 3. Calculate Amount using FIXED Rate
+        const claimAmount = balance * rate;
 
         if (claimAmount < MIN_REWARD_TOKENS) return res.status(400).json({ error: "Claim too small. Wait for more fees." });
 
-        console.log(`[API] User ${address} claiming ${claimAmount.toFixed(2)} SKR...`);
+        // Double Check: Ensure Vault has enough funds (Rate is based on start of epoch, funds might have moved?)
+        // In theory, if everyone claims, we drain it exactly.
+        // But if we had rounding errors, we might be short.
+        const currentVault = await getTokenBalance(SKR_MINT);
+        if (claimAmount > currentVault) {
+            // Edge Case: Rounding or theft? Cap it at currentVault?
+            // Or better: Fail safely.
+            console.warn(`[Claim] Warning: Vault shortage. Needed ${claimAmount}, Has ${currentVault}. Clipping.`);
+            // We can proceed with Min(claimAmount, currentVault), or fail.
+            // If we Clip, the User gets less than fair share, but better than nothing.
+        }
+
+        const finalAmount = Math.min(claimAmount, currentVault);
+
+        console.log(`[API] User ${address} claiming ${finalAmount.toFixed(2)} SKR (Epoch ${currentEpoch})...`);
 
         // --- DYNAMIC BURN CALCULATION ---
         // 1. Get Value of SKR in SOL
-        // We use 1 Unit of SKR to find price, then multiply? Or just quote the whole amount.
-        // Quote whole amount is safer for slippage/depth.
         const skrMintInfo = await getMint(connection, new PublicKey(SKR_MINT));
         const solMint = "So11111111111111111111111111111111111111112"; // Wrapped SOL
 
-        const skrLamports = Math.floor(claimAmount * Math.pow(10, skrMintInfo.decimals));
+        const skrLamports = Math.floor(finalAmount * Math.pow(10, skrMintInfo.decimals));
 
         // Quote: SKR -> SOL
         const skrToSolQuote = await Jupiter.getQuote(SKR_MINT, solMint, skrLamports);
@@ -458,14 +525,17 @@ app.post('/api/claim', async (req, res) => {
         console.log(`[API] ISG Burn Required: ${isgBurnAmount.toFixed(4)} ISG`);
 
         // 4. Create Transaction
-        const tx = await Distributor.createClaimTransaction(address, claimAmount, isgBurnAmount);
+        const tx = await Distributor.createClaimTransaction(address, finalAmount, isgBurnAmount);
 
         // Update analytics
         flywheelState.totalIsgBurned += isgBurnAmount;
 
+        // 5. MARK AS CLAIMED
+        markClaimed(currentEpoch, address, finalAmount);
+
         // Serialize and Return
         const serializedTx = tx.serialize({ requireAllSignatures: false }).toString('base64');
-        res.json({ transaction: serializedTx, burnAmount: isgBurnAmount, claimAmount });
+        res.json({ transaction: serializedTx, burnAmount: isgBurnAmount, claimAmount: finalAmount });
 
     } catch (e) {
         console.error("Claim Error:", e);
@@ -478,4 +548,3 @@ app.listen(PORT, () => {
     console.log(`[API] Server running on port ${PORT}`);
     main(); // Start Flywheel Loop
 });
-

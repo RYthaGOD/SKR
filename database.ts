@@ -24,6 +24,14 @@ export function initDB() {
             skrPrice REAL,
             vaultSol REAL
         );
+        CREATE TABLE IF NOT EXISTS claims (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            epochId INTEGER,
+            address TEXT,
+            amount REAL,
+            timestamp INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_claims_epoch_address ON claims(epochId, address);
     `);
 }
 
@@ -72,4 +80,16 @@ export function getHistory(limit = 24) {
         skrPrice: rows.map(r => r.skrPrice).reverse(),
         vaultSol: rows.map(r => r.vaultSol).reverse()
     };
+}
+
+// Claims Helpers
+export function hasClaimed(epochId: number, address: string): boolean {
+    const stmt = db.prepare('SELECT id FROM claims WHERE epochId = ? AND address = ?');
+    const row = stmt.get(epochId, address);
+    return !!row;
+}
+
+export function markClaimed(epochId: number, address: string, amount: number) {
+    const stmt = db.prepare('INSERT INTO claims (epochId, address, amount, timestamp) VALUES (?, ?, ?, ?)');
+    stmt.run(epochId, address, amount, Date.now());
 }

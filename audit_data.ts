@@ -1,6 +1,6 @@
 
 import { Connection, PublicKey } from "@solana/web3.js";
-import { getMint } from "@solana/spl-token";
+import { getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import { ISG_MINT, SKR_MINT, RPC_URL, WALLET_KEYPAIR } from "./config";
 
 // Force a reliable RPC for reading if different from config, but config is usually best source of truth for the app
@@ -14,20 +14,21 @@ async function main() {
     // 1. Check ISG Supply (Burn Check)
     try {
         const isgMint = new PublicKey(ISG_MINT);
-        const mintInfo = await getMint(connection, isgMint);
+        const info = await connection.getAccountInfo(isgMint);
+        if (!info) throw new Error("ISG Mint not found");
+
+        const programId = info.owner;
+        const mintInfo = await getMint(connection, isgMint, "confirmed", programId);
+
         const supply = Number(mintInfo.supply) / Math.pow(10, mintInfo.decimals);
         const initial = 1_000_000_000;
         const burned = initial - supply;
         console.log(`\n[ISG MINT] ${ISG_MINT}`);
+        console.log(`Program: ${programId.toBase58()}`);
         console.log(`Supply: ${supply.toLocaleString()}`);
         console.log(`Burned: ${burned.toLocaleString()} (Calculated from 1B initial)`);
     } catch (e: any) {
         console.error(`[ISG ERROR]`, e);
-        // Try raw account info
-        try {
-            const info = await connection.getAccountInfo(new PublicKey(ISG_MINT));
-            console.log(`[ISG RAW] Exists: ${!!info}, Owner: ${info?.owner.toBase58()}, Len: ${info?.data.length}`);
-        } catch (err) { console.error("Raw check failed", err); }
     }
 
     // 2. Check SKR Supply & Balance
