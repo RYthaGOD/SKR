@@ -24,12 +24,14 @@ export const WALLET_KEYPAIR = PRIVATE_KEY_STRING
 export const RPC_URL = process.env.RPC_URL || "https://mainnet.helius-rpc.com/?api-key=7fe3d6c8-f846-4f3c-bd5d-5dd9a48f161f";
 export const PUMP_PORTAL_API = "https://pumpportal.fun/api";
 export const EPOCH_DURATION_MS = 5 * 60 * 1000; // 5 Minutes (TESTING)
+export const USER_CLAIM_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 Hours (Holder Limit)
 export const TRACKER_INTERVAL_MS = 5 * 60 * 1000;     // 5 Minutes
-export const CLAIM_INTERVAL_MS = 60 * 60 * 1000;      // 1 Hour
+export const CLAIM_INTERVAL_MS = 60 * 60 * 1000;      // 1 Hour (System Fee Check)
 export const MIN_SOL_TO_CLAIM = 0.05;                 // Minimum accumulated SOL fees to trigger a claim
 export const RESERVE_SOL = 0.05;                      // Minimum SOL to keep in wallet at all times
 export const SLIPPAGE_BPS = 200;                      // 2% Slippage
 export const MIN_REWARD_TOKENS = 100;                 // Minimum SKR tokens to distribute (Dust Gate) - Adjust based on SKR price/decimals
+export const MAX_CLAIM_PCT_PER_EPOCH = 0.10;          // Whale Cap: Max 10% of the pot per claim
 // Note: 0.002 SOL is rent. If SKR is cheap, ensure 100 SKR > 0.002 SOL worth. 
 // Better: We can't easily price SKR here without an oracle. 
 // User should set a sensible "Minimum Tokens" amount that is worth > $0.01.

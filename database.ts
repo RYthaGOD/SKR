@@ -109,3 +109,9 @@ export function markClaimed(epochId: number, address: string, amount: number) {
     const stmt = db.prepare('INSERT INTO claims (epochId, address, amount, timestamp) VALUES (?, ?, ?, ?)');
     stmt.run(epochId, address, amount, Date.now());
 }
+
+export function getLastClaimTimestamp(address: string): number {
+    const stmt = db.prepare('SELECT timestamp FROM claims WHERE address = ? ORDER BY timestamp DESC LIMIT 1');
+    const row = stmt.get(address) as { timestamp: number } | undefined;
+    return row ? row.timestamp : 0;
+}

@@ -9,7 +9,9 @@ import {
     WALLET_KEYPAIR,
     MIN_REWARD_TOKENS,
     RESERVE_SOL,
-    CLAIM_INTERVAL_MS // Added
+    CLAIM_INTERVAL_MS,
+    MAX_CLAIM_PCT_PER_EPOCH,
+    USER_CLAIM_INTERVAL_MS
 } from './config';
 import { Tracker } from './components/tracker';
 import { Distributor } from './components/distributor';
@@ -22,7 +24,8 @@ import {
     addHistoryPoint,
     getHistory,
     hasClaimed,   // Added
-    markClaimed   // Added
+    markClaimed,  // Added
+    getLastClaimTimestamp
 } from './database';
 import { PumpPortal } from './utils/pumportal';
 import { Jupiter } from './utils/jupiter';
@@ -203,7 +206,7 @@ async function runCycle() {
     // 1. Check Fees & Buyback
     try {
         if (now - lastClaimTime > CLAIM_INTERVAL_MS) {
-            // Optimization: Real On-Chain Fee Check
+            // Check Curve Balance
             const curve = getBondingCurveAddress(ISG_MINT);
             const curveBalance = await connection.getBalance(curve);
             const curveSol = curveBalance / 1e9;
@@ -211,14 +214,41 @@ async function runCycle() {
 
             if (curveSol > MIN_SOL_TO_CLAIM) {
                 flywheelState.status = "CLAIMING_FEES";
+
+                // --- STRICT 80% BUYBACK LOGIC ---
+                // 1. Snapshot Balance Before
+                const balanceBefore = await connection.getBalance(WALLET_KEYPAIR.publicKey);
+
                 addFlywheelLog(`Fees found! Claiming...`);
                 await PumpPortal.claimCreatorFees({ mint: ISG_MINT });
-                addFlywheelLog("Claim Transaction Sent.");
+                addFlywheelLog("Claim Transaction Sent. Waiting for confirmation...");
+
+                await new Promise(r => setTimeout(r, 20000)); // Wait 20s for confirmation
+
+                // 2. Snapshot Balance After
+                const balanceAfter = await connection.getBalance(WALLET_KEYPAIR.publicKey);
+                const claimedLamports = balanceAfter - balanceBefore;
+                const claimedSol = claimedLamports / 1e9;
+
+                if (claimedSol > 0.001) {
+                    addFlywheelLog(`Success! Claimed ${claimedSol.toFixed(4)} SOL.`);
+
+                    // 3. Buyback 80%
+                    const buyAmount = claimedSol * 0.80;
+                    addFlywheelLog(`Buying SKR with 80% of fees: ${buyAmount.toFixed(4)} SOL`);
+                    try {
+                        await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
+                    } catch (err: any) {
+                        addFlywheelLog(`Buyback Failed: ${err.message}`);
+                    }
+
+                } else {
+                    addFlywheelLog(`Warning: Balance did not increase after claim.`);
+                }
+
                 lastClaimTime = now;
-                await new Promise(r => setTimeout(r, 10000));
             } else {
                 addFlywheelLog("Fees below threshold. Skipping claim.");
-                // Reset timer so we don't spam check? Or kept as is (1hr)
                 lastClaimTime = now;
             }
         }
@@ -227,16 +257,12 @@ async function runCycle() {
         addFlywheelLog(`Claim Check Error: ${e.message}`);
     }
 
-    // 2. Buyback surplus SOL
+    // REMOVED OLD BUYBACK LOGIC (Line 231-239) to only buy when fees are claimed
+    /*
     try {
-        const balance = await connection.getBalance(WALLET_KEYPAIR.publicKey);
-        const balanceSol = balance / 1e9;
-        if (balanceSol > RESERVE_SOL + 0.01) {
-            const buyAmount = (balanceSol - RESERVE_SOL) * 0.9;
-            addFlywheelLog(`Buying SKR with surplus ${buyAmount.toFixed(4)} SOL`);
-            await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
-        }
+        const balance = ...
     } catch (e) { }
+    */
 
     // 3. Epoch Cleanup & Rate Snapshot
     // Logic: If Epoch is over, we snapshot the Current Wallet Balance as the Pot for the NEXT Epoch.
@@ -495,9 +521,16 @@ app.post('/api/claim', async (req, res) => {
     try {
         const rate = flywheelState.currentEpochRate;
 
-        // 1. Check Previous Claim
+        // 1. Check Previous Claim (Epoch + Time)
         if (hasClaimed(currentEpoch, address)) {
             return res.status(400).json({ error: "You have already claimed for this Epoch. Please wait for the next cycle." });
+        }
+
+        const lastClaimTimestamp = getLastClaimTimestamp(address);
+        const timeSince = Date.now() - lastClaimTimestamp;
+        if (timeSince < USER_CLAIM_INTERVAL_MS) {
+            const minutesLeft = Math.ceil((USER_CLAIM_INTERVAL_MS - timeSince) / 60000);
+            return res.status(400).json({ error: `Cooldown active. Please wait ${minutesLeft} minutes between claims.` });
         }
 
         // 2. Get User Balance
@@ -513,15 +546,21 @@ app.post('/api/claim', async (req, res) => {
         // In theory, if everyone claims, we drain it exactly.
         // But if we had rounding errors, we might be short.
         const currentVault = await getTokenBalance(SKR_MINT);
-        if (claimAmount > currentVault) {
-            // Edge Case: Rounding or theft? Cap it at currentVault?
-            // Or better: Fail safely.
-            console.warn(`[Claim] Warning: Vault shortage. Needed ${claimAmount}, Has ${currentVault}. Clipping.`);
-            // We can proceed with Min(claimAmount, currentVault), or fail.
-            // If we Clip, the User gets less than fair share, but better than nothing.
+
+        // --- WHALE CAP IMPLEMENTATION ---
+        const maxAllowed = currentVault * MAX_CLAIM_PCT_PER_EPOCH;
+        let finalAmount = claimAmount;
+
+        if (finalAmount > maxAllowed) {
+            console.log(`[Claim] Whale Cap Hit: User entitlement ${finalAmount.toFixed(2)} SKR, Capped at ${maxAllowed.toFixed(2)} SKR (${MAX_CLAIM_PCT_PER_EPOCH * 100}% of Vault)`);
+            finalAmount = maxAllowed;
         }
 
-        const finalAmount = Math.min(claimAmount, currentVault);
+        // Sanity Check: Never exceed vault balance
+        if (finalAmount > currentVault) {
+            console.warn(`[Claim] Warning: Vault shortage. Needed ${finalAmount}, Has ${currentVault}. Clipping.`);
+            finalAmount = currentVault;
+        }
 
         console.log(`[API] User ${address} claiming ${finalAmount.toFixed(2)} SKR (Epoch ${currentEpoch})...`);
 
