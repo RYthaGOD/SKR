@@ -478,10 +478,21 @@ app.get('/api/balance/:address', async (req, res) => {
 });
 
 // 2. Create Claim Transaction
+const claimingLocks = new Set<string>(); // In-Memory Lock to prevent Race Conditions
+
 app.post('/api/claim', async (req, res) => {
     const { address } = req.body;
+    const currentEpoch = flywheelState.currentEpochId;
+    const lockKey = `${currentEpoch}:${address}`;
+
+    // 0. LOCK CHECK
+    if (claimingLocks.has(lockKey)) {
+        return res.status(429).json({ error: "A claim request is already processing for this address. Please wait." });
+    }
+
+    claimingLocks.add(lockKey);
+
     try {
-        const currentEpoch = flywheelState.currentEpochId;
         const rate = flywheelState.currentEpochRate;
 
         // 1. Check Previous Claim
@@ -570,6 +581,8 @@ app.post('/api/claim', async (req, res) => {
     } catch (e) {
         console.error("Claim Error:", e);
         res.status(500).json({ error: "Failed to create transaction" });
+    } finally {
+        claimingLocks.delete(lockKey);
     }
 });
 
