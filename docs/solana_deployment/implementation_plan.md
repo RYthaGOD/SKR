@@ -114,6 +114,23 @@ This involves on-chain actions.
     *   `app`: App details.
     *   `release`: Point to your `assets` and the `apk`.
     *   **Crucial Flags**: Ensure the config reflects that you are authorized.
+    *   **Review Fail**: Low | Rejection | Ensure the dashboard URL in `config.yaml` is live and working before submitting.
+
+  ## Phase 5: Database Persistence (Railway)
+To prevent your database (`flywheel.db`) from wiping on every deploy, you **MUST** mount a Volume.
+
+1.  **Set Environment Variable** (DONE):
+    *   We ran: `railway variables -s flywheel --set "DB_STORAGE_PATH=/data"`
+    *   This tells the app where to look.
+
+2.  **Mount Volume (Manual UI Step)**:
+    *   *The CLI command `railway volume add` is currently unstable.*
+    *   **Open Railway Dashboard** -> Click on your `flywheel` (backend) service.
+    *   **Go to "Volumes"** tab.
+    *   **Click "Add Volume"**.
+    *   **Mount Path**: Enter `/data` and Click Add.
+    *   Railway will likely redeploy automatically.
+ure the dashboard URL in `config.yaml` is live and working before submitting.
 
 3.  **Validate**:
     ```bash
