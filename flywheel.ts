@@ -413,8 +413,28 @@ async function getIsgBurned(): Promise<number> {
 // --- SERVER & API ---
 import express from 'express';
 import cors from 'cors';
+import { rateLimit } from 'express-rate-limit';
 
 const app = express();
+
+// --- RATE LIMITING ---
+// General limiter: 100 requests per 15 minutes
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later." }
+});
+
+// Strict limiter for claims: 5 requests per 15 minutes per IP
+const claimLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { error: "Claim rate limit exceeded. Heavy load on ZK proofs, please wait." }
+});
+
+app.use(generalLimiter);
 app.use(cors());
 app.use(express.json());
 const PORT = process.env.PORT || 3001;
@@ -557,7 +577,7 @@ app.get('/api/balance/:address', async (req, res) => {
 // 2. Create Claim Transaction
 const claimingLocks = new Set<string>(); // In-Memory Lock to prevent Race Conditions
 
-app.post('/api/claim', async (req, res) => {
+app.post('/api/claim', claimLimiter, async (req, res) => {
     const { address, shield = false } = req.body;
     const currentEpoch = flywheelState.currentEpochId;
     const lockKey = `${currentEpoch}:${address}`;

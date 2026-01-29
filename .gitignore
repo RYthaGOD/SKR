@@ -6,3 +6,7 @@ stats.json
 points.json
 flywheel.db
 error.log
+tools/
+deployment/
+*.apk
+*.idsig

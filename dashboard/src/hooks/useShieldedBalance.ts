@@ -33,21 +33,11 @@ export const useShieldedBalance = () => {
                 const items = accounts.items || [];
 
                 for (const acc of items) {
-                    // Cast to any to bypass generic return type issues
-                    const a = acc as any;
+                    const { parsed } = acc as any; // ParsedTokenAccount
 
-                    // Check if this compressed account is for our mint
-                    // Accessing .mint property - might need to check structure if it's nested in .token
-                    if (a.token && a.token.mint.toBase58() === skrMintStr) {
-                        const amount = Number(a.token.amount);
-                        // Convert from raw units (assuming 9 decimals like standard SPL if not specified)
-                        // Better to get decimals from mint, but SDK often returns raw
-                        // For now assume 9 decimals for SKR
-                        total += amount / 1_000_000_000;
-                    }
-                    // Fallback check if structure is different
-                    else if (a.mint && a.mint.toBase58() === skrMintStr) {
-                        const amount = Number(a.amount);
+                    if (parsed && parsed.mint && parsed.mint.toBase58() === skrMintStr) {
+                        const amount = Number(parsed.amount);
+                        // Convert from raw units (9 decimals for SKR)
                         total += amount / 1_000_000_000;
                     }
                 }

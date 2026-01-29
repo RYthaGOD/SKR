@@ -20,18 +20,50 @@ export const UnshieldButton = ({ balance }: { balance: number }) => {
             const mint = new PublicKey(SKR_MINT);
             const amount = BigInt(Math.floor(balance * 1_000_000_000));
 
-            const { getAssociatedTokenAddress } = await import('@solana/spl-token');
-            const destAta = await getAssociatedTokenAddress(mint, publicKey);
-
             console.log(`[Privacy] Decompressing ${amount.toString()}...`);
 
-            // Using 'decompress' (Unshield) from SDK with Any cast
+            // Dynamic Import for protocol logic
+            const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+            const { createRpc } = await import('@lightprotocol/stateless.js');
+            const {
+                getTokenPoolInfos,
+                selectMinCompressedTokenAccountsForDecompression,
+            } = await import('@lightprotocol/compressed-token');
+
+            const destAta = await getAssociatedTokenAddress(mint, publicKey);
+            const rpc = createRpc(RPC_URL);
+
+            // 1. Fetch compressed token accounts
+            const { items: compressedAccounts } = await rpc.getCompressedTokenAccountsByOwner(publicKey, { mint });
+
+            if (compressedAccounts.length === 0) {
+                throw new Error("No shielded assets found to unshield.");
+            }
+
+            // 2. Select accounts to meet amount
+            const { selectedAccounts, total } = selectMinCompressedTokenAccountsForDecompression(
+                compressedAccounts,
+                amount
+            );
+
+            if (total.lt(new (await import('bn.js')).default(amount.toString()))) {
+                throw new Error("Insufficient shielded balance for this operation.");
+            }
+
+            // 3. Fetch Validity Proof
+            const proof = await rpc.getValidityProof(
+                selectedAccounts.map(a => a.compressedAccount.hash)
+            );
+
+            // Using 'decompress' (Unshield) from SDK
             const ix = await (CompressedTokenProgram as any).decompress({
                 payer: publicKey,
-                owner: publicKey,
-                dest: destAta,
-                mint: mint,
+                inputCompressedTokenAccounts: selectedAccounts,
+                toAddress: destAta,
                 amount: amount,
+                recentValidityProof: proof.compressedProof,
+                recentInputStateRootIndices: proof.rootIndices,
+                tokenPoolInfos: await getTokenPoolInfos(rpc, mint)
             });
 
             // 3. Send Transaction

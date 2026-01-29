@@ -24,12 +24,21 @@ export const ShieldButton = ({ balance, onSuccess }: { balance: number, onSucces
 
             console.log(`[Privacy] Compressing ${amount.toString()} of ${mint.toBase58()}...`);
 
-            // Dynamic Import SPL Token
+            // Dynamic Import for protocol logic
             const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+            const { createRpc, selectStateTreeInfo } = await import('@lightprotocol/stateless.js');
+            const { getTokenPoolInfos, selectTokenPoolInfo } = await import('@lightprotocol/compressed-token');
+
             const sourceAta = await getAssociatedTokenAddress(mint, publicKey);
+            const rpc = createRpc(RPC_URL);
+
+            // Fetch required metadata for compression
+            const poolInfos = await getTokenPoolInfos(rpc, mint);
+            const poolInfo = selectTokenPoolInfo(poolInfos);
+            const treeInfos = await rpc.getStateTreeInfos();
+            const treeInfo = selectStateTreeInfo(treeInfos);
 
             // Using 'compress' (Shield) from SDK
-            // Casting to any to bypass potential type definition lags relative to runtime exports
             const ix = await (CompressedTokenProgram as any).compress({
                 payer: publicKey,
                 owner: publicKey,
@@ -37,6 +46,8 @@ export const ShieldButton = ({ balance, onSuccess }: { balance: number, onSucces
                 toAddress: publicKey, // Shield to self
                 mint: mint,
                 amount: amount,
+                tokenPoolInfo: poolInfo,
+                outputStateTreeInfo: treeInfo
             });
 
             // 3. Send Transaction
