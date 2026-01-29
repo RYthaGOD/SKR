@@ -507,7 +507,7 @@ app.get('/api/balance/:address', async (req, res) => {
 const claimingLocks = new Set<string>(); // In-Memory Lock to prevent Race Conditions
 
 app.post('/api/claim', async (req, res) => {
-    const { address } = req.body;
+    const { address, shield = false } = req.body;
     const currentEpoch = flywheelState.currentEpochId;
     const lockKey = `${currentEpoch}:${address}`;
 
@@ -604,8 +604,9 @@ app.post('/api/claim', async (req, res) => {
 
         console.log(`[API] ISG Burn Required: ${isgBurnAmount.toFixed(4)} ISG`);
 
-        // 4. Create Transaction
+        // 4. Create Transaction (Base: Burn ISG + Receive SKR)
         const tx = await Distributor.createClaimTransaction(address, finalAmount, isgBurnAmount);
+        const userPubkey = new PublicKey(address);
 
         // Update analytics
         flywheelState.totalIsgBurned += isgBurnAmount;

@@ -1,0 +1,73 @@
+import { useState } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { Shield } from 'lucide-react';
+import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { CompressedTokenProgram } from '@lightprotocol/compressed-token';
+import { SKR_MINT, RPC_URL } from '../../config/constants';
+
+export const ShieldButton = ({ balance, onSuccess }: { balance: number, onSuccess?: () => void }) => {
+    const { publicKey, sendTransaction } = useWallet();
+    const [loading, setLoading] = useState(false);
+
+    const handleShield = async () => {
+        if (!publicKey || balance <= 0) return;
+        setLoading(true);
+
+        try {
+            // 1. Setup Connection
+            const connection = new Connection(RPC_URL, "confirmed");
+
+            // 2. Prepare Compress Instruction (Shield)
+            const mint = new PublicKey(SKR_MINT);
+            // Amount in base units (9 decimals)
+            const amount = BigInt(Math.floor(balance * 1_000_000_000));
+
+            console.log(`[Privacy] Compressing ${amount.toString()} of ${mint.toBase58()}...`);
+
+            // Dynamic Import SPL Token
+            const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+            const sourceAta = await getAssociatedTokenAddress(mint, publicKey);
+
+            // Using 'compress' (Shield) from SDK
+            // Casting to any to bypass potential type definition lags relative to runtime exports
+            const ix = await (CompressedTokenProgram as any).compress({
+                payer: publicKey,
+                owner: publicKey,
+                source: sourceAta,
+                toAddress: publicKey, // Shield to self
+                mint: mint,
+                amount: amount,
+            });
+
+            // 3. Send Transaction
+            const tx = new Transaction().add(ix);
+            const signature = await sendTransaction(tx, connection);
+
+            console.log(`[Privacy] Shield TX: ${signature}`);
+            await connection.confirmTransaction(signature, "confirmed");
+
+            alert(`SUCCESS: Assets Shielded/Compressed on Mainnet! TX: ${signature}`);
+            if (onSuccess) onSuccess();
+
+        } catch (e: any) {
+            console.error("Shield Error:", e);
+            alert("Shielding Failed: " + (e.message || "Unknown Error. Check console."));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleShield}
+            disabled={loading || balance <= 0}
+            className={`flex items-center gap-2 px-4 py-3 border rounded text-xs uppercase tracking-widest transition-all min-h-[44px]
+                ${balance > 0 ? "bg-[#00ff41]/10 border-[#00ff41]/20 hover:bg-[#00ff41]/20 text-[#00ff41]"
+                    : "bg-white/5 border-white/10 text-white/20 cursor-not-allowed"}
+            `}
+        >
+            <Shield className="w-3 h-3" />
+            {loading ? "ENCRYPTING..." : "SHIELD_ASSETS"}
+        </button>
+    );
+};

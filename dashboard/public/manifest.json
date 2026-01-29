@@ -1,0 +1,23 @@
+{
+    "name": "SKR Claim Terminal",
+    "short_name": "SKR Terminal",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": "#000000",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/globe.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Claim Rewards",
+            "url": "/"
+        }
+    ],
+    "description": "Secure Share Distribution Terminal for Solana"
+}
