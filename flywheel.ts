@@ -177,7 +177,13 @@ async function main() {
     addFlywheelLog("Starting SKR Flywheel...");
 
     // Initial run
-    await runCycle();
+    try {
+        await runCycle();
+    } catch (e: any) {
+        console.error("[Flywheel] Initial Cycle Error:", e);
+        addFlywheelLog(`Initial Cycle Error: ${e.message}`);
+        // Do not exit; allow the interval to keep trying
+    }
 
     // Loop
     setInterval(async () => {
