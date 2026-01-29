@@ -4,6 +4,7 @@ import { Unlock } from 'lucide-react';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { CompressedTokenProgram } from '@lightprotocol/compressed-token';
 import { SKR_MINT, RPC_URL } from '../../config/constants';
+import BN from 'bn.js';
 
 export const UnshieldButton = ({ balance }: { balance: number }) => {
     const { publicKey, sendTransaction } = useWallet();
@@ -43,10 +44,10 @@ export const UnshieldButton = ({ balance }: { balance: number }) => {
             // 2. Select accounts to meet amount
             const { selectedAccounts, total } = selectMinCompressedTokenAccountsForDecompression(
                 compressedAccounts,
-                amount
+                new BN(amount.toString())
             );
 
-            if (total.lt(new (await import('bn.js')).default(amount.toString()))) {
+            if (total.lt(new BN(amount.toString()))) {
                 throw new Error("Insufficient shielded balance for this operation.");
             }
 
