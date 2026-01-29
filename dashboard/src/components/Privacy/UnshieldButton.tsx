@@ -41,7 +41,7 @@ export const UnshieldButton = ({ balance }: { balance: number }) => {
                 throw new Error("No shielded assets found to unshield.");
             }
 
-            // 2. Select accounts to meet amount
+            const BN = (await import('bn.js')).default;
             const { selectedAccounts, total } = selectMinCompressedTokenAccountsForDecompression(
                 compressedAccounts,
                 new BN(amount.toString())
@@ -67,8 +67,28 @@ export const UnshieldButton = ({ balance }: { balance: number }) => {
                 tokenPoolInfos: await getTokenPoolInfos(rpc, mint)
             });
 
-            // 3. Send Transaction
-            const tx = new Transaction().add(ix);
+            // 3. Add Compute Budget instructions (ZK operations are heavy)
+            const { ComputeBudgetProgram } = await import('@solana/web3.js');
+            const computeLimitIx = ComputeBudgetProgram.setComputeUnitLimit({
+                units: 800_000, // ZK Decompression is heavy
+            });
+            const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
+                microLamports: 10_000, // Nominal priority fee
+            });
+
+            // 4. Send Transaction
+            const tx = new Transaction().add(computeLimitIx).add(priorityFeeIx).add(ix);
+            tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+            tx.feePayer = publicKey;
+
+            // PRE-FLIGHT SIMULATION
+            console.log("[Privacy] Simulating unshield transaction...");
+            const simulation = await connection.simulateTransaction(tx);
+            if (simulation.value.err) {
+                console.error("[Privacy] Unshield Simulation Failed:", simulation.value.logs);
+                throw new Error(`Simulation Error: ${JSON.stringify(simulation.value.err)}`);
+            }
+
             const signature = await sendTransaction(tx, connection);
 
             console.log(`[Privacy] Unshield TX: ${signature}`);

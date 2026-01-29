@@ -50,8 +50,28 @@ export const ShieldButton = ({ balance, onSuccess }: { balance: number, onSucces
                 outputStateTreeInfo: treeInfo
             });
 
-            // 3. Send Transaction
-            const tx = new Transaction().add(ix);
+            // 3. Add Compute Budget instructions (ZK operations are heavy)
+            const { ComputeBudgetProgram } = await import('@solana/web3.js');
+            const computeLimitIx = ComputeBudgetProgram.setComputeUnitLimit({
+                units: 800_000, // ZK Compression is heavy
+            });
+            const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
+                microLamports: 10_000, // Nominal priority fee
+            });
+
+            // 4. Send Transaction
+            const tx = new Transaction().add(computeLimitIx).add(priorityFeeIx).add(ix);
+            tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+            tx.feePayer = publicKey;
+
+            // PRE-FLIGHT SIMULATION for better error debugging
+            console.log("[Privacy] Simulating transaction...");
+            const simulation = await connection.simulateTransaction(tx);
+            if (simulation.value.err) {
+                console.error("[Privacy] Simulation Failed:", simulation.value.logs);
+                throw new Error(`Simulation Error: ${JSON.stringify(simulation.value.err)}`);
+            }
+
             const signature = await sendTransaction(tx, connection);
 
             console.log(`[Privacy] Shield TX: ${signature}`);
