@@ -374,6 +374,11 @@ app.use(cors());
 app.use(express.json());
 const PORT = process.env.PORT || 3001;
 
+// Health Check for Railway
+app.get('/', (req, res) => {
+    res.status(200).send("SKR Flywheel Active");
+});
+
 // 1. Get Balance & Eligibility
 let statsCache: any = null;
 let lastStatsFetch = 0;
