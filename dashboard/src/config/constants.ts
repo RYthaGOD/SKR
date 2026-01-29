@@ -9,7 +9,7 @@ export const RPC_URL = "https://api.mainnet-beta.solana.com"; // Default fallbac
 export const HELIUS_RPC_URL = "https://mainnet.helius-rpc.com/?api-key="; // Will need env var if client side, but usually backend handles this.
 
 export const MIN_REWARD_TOKENS = 100;
-export const APP_VERSION = "1.3.0";
+export const APP_VERSION = "1.5.0-SEEKER";
 
 export const SOCIALS = {
     telegram: "https://t.me/SKR_COMMUNITY_LINK",
