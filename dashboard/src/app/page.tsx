@@ -182,7 +182,7 @@ export default function Home() {
               <span>{claimState.loading ? "CALCULATING..." : claimState.points > 0 ? "ELIGIBLE" : "NO_SHARES"}</span>
             </div>
             <div className="text-2xl font-black text-white mb-2">
-              {claimState.amount.toFixed(2)} <span className="text-xs text-[#00ff41]">SKR</span>
+              {claimState.amount?.toFixed(2) || "0.00"} <span className="text-xs text-[#00ff41]">SKR</span>
             </div>
 
             <button
@@ -211,7 +211,7 @@ export default function Home() {
             <div className="pt-2 border-t border-[#00ff41]/10 mt-2">
               <div className="text-[#00ff41] font-bold mb-1 flex justify-between items-center">
                 <span>PRIVACY_UPGRADE (Light V1)</span>
-                <span className="text-[9px] opacity-50">{shieldingLoading ? "SCANNING_ZK_STATE..." : `ZK_BALANCE: ${shieldedBalance?.toFixed(2) || "0.00"}`}</span>
+                <span className="text-[9px] opacity-50">{shieldingLoading ? "SCANNING_ZK_STATE..." : `ZK_BALANCE: ${shieldedBalance?.toFixed(2) ?? "0.00"}`}</span>
               </div>
               <div className="flex gap-2 mt-2">
                 <ShieldButton balance={skrBalance || 0} />

@@ -38,7 +38,7 @@ export const useClaim = (addLog: (msg: string) => void) => {
 
             if (data.points > 0) {
                 addLog(`Eligible Shares Detected: ${data.points} pts`);
-                addLog(`Estimated SKR Allocation: ${data.amount.toFixed(2)} SKR`);
+                addLog(`Estimated SKR Allocation: ${data.amount?.toFixed(2) || "0.00"} SKR`);
             } else {
                 addLog(`No eligible shares found.`);
             }

@@ -14,7 +14,7 @@ export const Terminal = ({ logs, progress, stats }: TerminalProps) => {
                 <span className="flex items-center gap-4">
                     <span>CYCLES: {stats?.cycleParams?.count || 0}</span>
                     <span className="flex items-center gap-2">
-                        BUFFER: {stats?.vaultSol?.toFixed(4)} SOL
+                        BUFFER: {stats?.vaultSol?.toFixed(4) || "0.0000"} SOL
                         <div className="w-1.5 h-1.5 bg-[#00ff41] animate-pulse"></div>
                     </span>
                 </span>
