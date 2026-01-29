@@ -61,6 +61,8 @@ export default function Home() {
           </h1>
           <div className="flex gap-4 text-[10px] opacity-60 tracking-widest mt-1">
             <span>SYS_STATUS: <span className={stats?.cycleParams?.status === "IDLE" ? "text-yellow-400" : "text-[#00ff41] animate-pulse"}>{stats?.cycleParams?.status || "OFFLINE"}</span></span>
+            <span className="hidden md:inline">|</span>
+            <span>TARGET: <span className={stats?.cycleParams?.buybackTarget === "ISG" ? "text-blue-400 font-bold glow-text-blue" : "text-[#00ff41] font-bold"}>{stats?.cycleParams?.buybackTarget || "SKR"}</span></span>
             <span>NET: MAINNET-BETA</span>
             <span className="text-[#00ff41]/50">| BLD: {BUILD_TIMESTAMP}</span>
           </div>
@@ -222,6 +224,9 @@ export default function Home() {
       <style jsx global>{`
         .glow-text-red {
           text-shadow: 0 0 10px rgba(255, 0, 0, 0.4), 0 0 20px rgba(255, 0, 0, 0.2);
+        }
+        .glow-text-blue {
+          text-shadow: 0 0 10px rgba(0, 191, 255, 0.6), 0 0 20px rgba(0, 191, 255, 0.4);
         }
         @keyframes dash { to { stroke-dashoffset: -50; } }
       `}</style>

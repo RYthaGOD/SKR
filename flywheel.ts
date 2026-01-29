@@ -86,6 +86,7 @@ let flywheelState = {
     },
     logs: [] as string[],
     lastBuybackAmount: 0,
+    buybackTarget: "SKR", // Default
     // Epoch State (Snapshots)
     currentEpochId: 1,
     currentEpochRate: 0, // SKR per ISG (Snapshot)
@@ -100,6 +101,7 @@ try {
     const savedTotalSkr = loadStat('totalSkrDistributed', 0);
     const savedTotalIsg = loadStat('totalIsgBurned', 0);
     const savedlastBuyback = loadStat('lastBuybackAmount', 0);
+    const savedBuybackTarget = loadStat('buybackTarget', "SKR");
     const savedEpochId = loadStat('currentEpochId', 1);
     const savedEpochRate = loadStat('currentEpochRate', 0); // Default 0
     const savedEpochStart = loadStat('epochStartTime', Date.now());
@@ -111,6 +113,7 @@ try {
         totalSkrDistributed: savedTotalSkr,
         totalIsgBurned: savedTotalIsg,
         lastBuybackAmount: savedlastBuyback,
+        buybackTarget: savedBuybackTarget,
         currentEpochId: savedEpochId,
         currentEpochRate: savedEpochRate,
         epochStartTime: savedEpochStart,
@@ -129,6 +132,7 @@ const saveStats = () => {
     saveStat('totalSkrDistributed', flywheelState.totalSkrDistributed);
     saveStat('totalIsgBurned', flywheelState.totalIsgBurned);
     saveStat('lastBuybackAmount', flywheelState.lastBuybackAmount);
+    saveStat('buybackTarget', flywheelState.buybackTarget);
     saveStat('currentEpochId', flywheelState.currentEpochId);
     saveStat('currentEpochRate', flywheelState.currentEpochRate);
     saveStat('epochStartTime', flywheelState.epochStartTime);
@@ -241,14 +245,17 @@ async function runCycle() {
                         addFlywheelLog(`ISG Market Cap: $${mcap.toFixed(2)}`);
 
                         if (mcap < 20000) { // $20k Threshold
+                            flywheelState.buybackTarget = "ISG";
                             addFlywheelLog(`Market Cap < $20k. Diverting buyback to ISG...`);
                             addFlywheelLog(`Buying ISG with ${buyAmount.toFixed(4)} SOL`);
                             await PumpPortal.buyToken(buyAmount, ISG_MINT);
                         } else {
+                            flywheelState.buybackTarget = "SKR";
                             addFlywheelLog(`Market Cap >= $20k. Buying SKR...`);
                             addFlywheelLog(`Buying SKR with ${buyAmount.toFixed(4)} SOL`);
                             await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
                         }
+                        saveStats(); // Persist target change
                     } catch (err: any) {
                         addFlywheelLog(`Buyback Failed: ${err.message}`);
                     }
@@ -493,7 +500,8 @@ app.get('/api/stats', async (req, res) => {
                 lastCycle: flywheelState.lastCycleTime,
                 nextCycle: flywheelState.lastCycleTime + TRACKER_INTERVAL_MS,
                 count: flywheelState.cycleCount,
-                logs: flywheelState.logs
+                logs: flywheelState.logs,
+                buybackTarget: flywheelState.buybackTarget || "SKR"
             },
             epoch: {
                 id: flywheelState.currentEpochId,
