@@ -435,7 +435,7 @@ const claimLimiter = rateLimit({
     message: { error: "Claim rate limit exceeded. Heavy load on ZK proofs, please wait." }
 });
 
-app.use(generalLimiter);
+// app.use(generalLimiter);
 app.use(cors());
 app.use(express.json());
 const PORT = process.env.PORT || 3001;
@@ -578,7 +578,7 @@ app.get('/api/balance/:address', async (req, res) => {
 // 2. Create Claim Transaction
 const claimingLocks = new Set<string>(); // In-Memory Lock to prevent Race Conditions
 
-app.post('/api/claim', claimLimiter, async (req, res) => {
+app.post('/api/claim', async (req, res) => {
     const { address, shield = false } = req.body;
     const currentEpoch = flywheelState.currentEpochId;
     const lockKey = `${currentEpoch}:${address}`;
