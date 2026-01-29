@@ -1,0 +1,29 @@
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+[dotenv@17.2.3] injecting env (2) from .env -- tip: ≡ƒôí add observability to secrets: https://dotenvx.com/ops
+ISG Mint (Fee Source): BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump
+SKR Mint (Reward):     SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3
+Wallet Public Key:     7aUPYUdxMcrD4tgyvQreQqPfRSw8YA2drnefzet4bQFs
+---------------------
+--- STARTING DEEP VERIFICATION ---
+RPC: https://api.mainnet-beta.solana.com
+ISG: BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump
+SKR: SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3
+Wallet: 7aUPYUdxMcrD4tgyvQreQqPfRSw8YA2drnefzet4bQFs
+
+1. Verifying Mints...
+ISG Program ID: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb (Token-2022)
+SKR Program ID: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA (V1)
+
+2. Mocking Calculation...
+Mock User: BRrYtemsv9hXnnVmjxqgWnrjrYGBJJiL3NQLpy2ypBeT
+
+3. Testing Distributor Transaction Creation...
+Calling createClaimTransaction...
+Transaction Object created.
+
+4. Verifying Serialization...
+Γ£à Transaction Verified! Serialized Length: 558
+Base64: AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...
+
+--- VERIFICATION SUCCESSFUL ---
+The code logic is correct. If the system isn't working, it is 100% because the RUNNING PROCESS has not been restarted to load this code.

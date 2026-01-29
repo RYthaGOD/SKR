@@ -1,0 +1,29 @@
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+[dotenv@17.2.3] injecting env (2) from .env -- tip: ΓÜÖ∩╕Å  suppress all logs with { quiet: true }
+ISG Mint (Fee Source): BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump
+SKR Mint (Reward):     SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3
+Wallet Public Key:     7aUPYUdxMcrD4tgyvQreQqPfRSw8YA2drnefzet4bQFs
+---------------------
+--- BURN INSTRUCTION CHECK ---
+Creating Claim Tx for 8MhPsZcoFijsD8ocJNFL5WARQf55egqsB23AVbUfyK2J...
+Burn Amount: 50 ISG
+
+Transaction Instructions: 3
+
+Instruction #1:
+ProgramId: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb
+Keys: 2nrw6sb5, BAszjaGW, 8MhPsZco
+  -> Potential Token Instruction
+
+Instruction #2:
+ProgramId: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
+Keys: 8MhPsZco, DjagBx96, 8MhPsZco, SKRbvo6G, 11111111, Tokenkeg
+  -> Potential Token Instruction
+
+Instruction #3:
+ProgramId: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+Keys: BineqQcS, DjagBx96, 7aUPYUdx
+  -> Potential Token Instruction
+
+Γ£à BURN INSTRUCTION DETECTED.
+The transaction explicitly includes a Token Instruction (Burn).

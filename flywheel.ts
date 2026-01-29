@@ -416,6 +416,7 @@ import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 
 const app = express();
+app.set('trust proxy', 1); // Trust Railway's proxy
 
 // --- RATE LIMITING ---
 // General limiter: 100 requests per 15 minutes
