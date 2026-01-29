@@ -672,7 +672,7 @@ app.post('/api/claim', async (req, res) => {
 });
 
 // Start Server & Bot
-app.listen(PORT, () => {
-    console.log(`[API] Server running on port ${PORT}`);
+app.listen(Number(PORT), "0.0.0.0", () => {
+    console.log(`[API] Server running on port ${PORT} (Bound to 0.0.0.0)`);
     main(); // Start Flywheel Loop
 });
