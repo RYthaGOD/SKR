@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { Rpc } from '@lightprotocol/stateless.js';
+import { createRpc } from '@lightprotocol/stateless.js';
 import { SKR_MINT, RPC_URL } from '../config/constants';
 // import { PublicKey } from '@solana/web3.js';
 
@@ -17,7 +17,7 @@ export const useShieldedBalance = () => {
             try {
                 // Initialize Light Protocol RPC
                 // Use default public RPC if specific one not provided
-                const rpc = new Rpc(RPC_URL);
+                const rpc = createRpc(RPC_URL);
 
                 // Fetch compressed token accounts
                 const accounts = await rpc.getCompressedTokenAccountsByOwner(publicKey);
