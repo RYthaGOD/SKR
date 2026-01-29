@@ -24,12 +24,27 @@ export const ShieldButton = ({ balance, onSuccess }: { balance: number, onSucces
 
             console.log(`[Privacy] Compressing ${amount.toString()} of ${mint.toBase58()}...`);
 
-            // Dynamic Import for protocol logic
-            const { getAssociatedTokenAddress } = await import('@solana/spl-token');
+            const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
             const { createRpc, selectStateTreeInfo } = await import('@lightprotocol/stateless.js');
             const { getTokenPoolInfos, selectTokenPoolInfo } = await import('@lightprotocol/compressed-token');
 
             const sourceAta = await getAssociatedTokenAddress(mint, publicKey);
+
+            // DIAGNOSTIC: Check actual ATA balance before anything
+            try {
+                const ataAccount = await getAccount(connection, sourceAta);
+                console.log(`[Privacy] Source ATA: ${sourceAta.toBase58()}, Balance: ${ataAccount.amount.toString()}`);
+                if (ataAccount.amount < amount) {
+                    throw new Error(`Insufficient uncompressed SKR balance. Available: ${Number(ataAccount.amount) / 1e9}, Requested: ${Number(amount) / 1e9}`);
+                }
+            } catch (ataError: any) {
+                console.error("[Privacy] ATA Check Failed:", ataError);
+                if (ataError.name === "TokenAccountNotFoundError") {
+                    throw new Error("Source SKR token account not found. Ensure you have uncompressed SKR in your wallet.");
+                }
+                throw ataError;
+            }
+
             const rpc = createRpc(RPC_URL);
 
             // Fetch required metadata for compression
