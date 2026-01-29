@@ -3,7 +3,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { Unlock } from 'lucide-react';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { CompressedTokenProgram } from '@lightprotocol/compressed-token';
-import { SKR_MINT, RPC_URL } from '../../config/constants';
+import { SKR_MINT, RPC_URL, SKR_DECIMALS } from '../../config/constants';
 import BN from 'bn.js';
 
 export const UnshieldButton = ({ balance }: { balance: number }) => {
@@ -19,7 +19,8 @@ export const UnshieldButton = ({ balance }: { balance: number }) => {
 
             // 2. Prepare Decompress Instruction (Unshield)
             const mint = new PublicKey(SKR_MINT);
-            const amount = BigInt(Math.floor(balance * 1_000_000_000));
+            const decimalFactor = Math.pow(10, SKR_DECIMALS);
+            const amount = BigInt(Math.floor(balance * decimalFactor));
 
             console.log(`[Privacy] Decompressing ${amount.toString()}...`);
 

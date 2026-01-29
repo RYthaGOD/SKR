@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { createRpc } from '@lightprotocol/stateless.js';
-import { SKR_MINT, RPC_URL } from '../config/constants';
+import { SKR_MINT, RPC_URL, SKR_DECIMALS } from '../config/constants';
 // import { PublicKey } from '@solana/web3.js';
 
 export const useShieldedBalance = () => {
@@ -27,36 +27,28 @@ export const useShieldedBalance = () => {
                 // Need to aggregate amount
 
                 const skrMintStr = SKR_MINT;
+                const decimalFactor = Math.pow(10, SKR_DECIMALS);
                 let total = 0;
-
-                // accounts.items is the standard return structure for paginated calls in Light SDK
-                const items = accounts.items || [];
-
-                for (const acc of items) {
-                    const { parsed } = acc as any; // ParsedTokenAccount
-
-                    if (parsed && parsed.mint && parsed.mint.toBase58() === skrMintStr) {
+...
                         const amount = Number(parsed.amount);
-                        // Convert from raw units (9 decimals for SKR)
-                        total += amount / 1_000_000_000;
-                    }
-                }
+    // Convert from raw units
+    total += amount / decimalFactor;
 
-                setBalance(total);
+    setBalance(total);
 
-            } catch (e) {
-                console.warn("[Privacy] Failed to fetch shielded balance:", e);
-                // setBalance(0); // Setup might be invalid, but we try-catch to avoid crash
-            } finally {
-                setLoading(false);
-            }
+} catch (e) {
+    console.warn("[Privacy] Failed to fetch shielded balance:", e);
+    // setBalance(0); // Setup might be invalid, but we try-catch to avoid crash
+} finally {
+    setLoading(false);
+}
         };
 
-        fetchBalance();
-        const interval = setInterval(fetchBalance, 30000);
-        return () => clearInterval(interval);
+fetchBalance();
+const interval = setInterval(fetchBalance, 30000);
+return () => clearInterval(interval);
     }, [publicKey]);
 
-    return { balance, loading };
+return { balance, loading };
 };
 

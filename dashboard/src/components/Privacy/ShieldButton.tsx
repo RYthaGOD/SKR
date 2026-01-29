@@ -3,7 +3,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { Shield } from 'lucide-react';
 import { Connection, PublicKey, Transaction } from '@solana/web3.js';
 import { CompressedTokenProgram } from '@lightprotocol/compressed-token';
-import { SKR_MINT, RPC_URL } from '../../config/constants';
+import { SKR_MINT, RPC_URL, SKR_DECIMALS } from '../../config/constants';
 
 export const ShieldButton = ({ balance, onSuccess }: { balance: number, onSuccess?: () => void }) => {
     const { publicKey, sendTransaction } = useWallet();
@@ -19,8 +19,9 @@ export const ShieldButton = ({ balance, onSuccess }: { balance: number, onSucces
 
             // 2. Prepare Compress Instruction (Shield)
             const mint = new PublicKey(SKR_MINT);
-            // Amount in base units (9 decimals)
-            const amount = BigInt(Math.floor(balance * 1_000_000_000));
+            // Amount in base units
+            const decimalFactor = Math.pow(10, SKR_DECIMALS);
+            const amount = BigInt(Math.floor(balance * decimalFactor));
 
             console.log(`[Privacy] Compressing ${amount.toString()} of ${mint.toBase58()}...`);
 

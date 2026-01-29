@@ -1,5 +1,6 @@
 export const ISG_MINT = process.env.NEXT_PUBLIC_ISG_MINT || "BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwxy9eK5yfyqpump";
 export const SKR_MINT = process.env.NEXT_PUBLIC_SKR_MINT || "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
+export const SKR_DECIMALS = 6;
 
 // Determine API URL based on environment
 const IS_DEV = process.env.NODE_ENV === 'development';
