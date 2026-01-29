@@ -1,21 +1,22 @@
 [build]
-builder = "NIXPACKS"
+builder = "nixpacks"
 
-[phases.setup]
-nixPkgs = ["python3", "gcc", "gnumake"]
-
-[deploy]
+# Service 1: Backend (Flywheel)
+[service.backend]
+path = "/"
+buildCommand = "npm install && npm run build"
+startCommand = "npm start"
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
+restartPolicyMaxRetries = 5
 
-[[services]]
-name = "flywheel"
-rootDirectory = "/"
-buildCommand = "echo 'No build required for flywheel'"
-startCommand = "npx ts-node flywheel.ts"
-
-[[services]]
-name = "dashboard"
-rootDirectory = "dashboard"
-buildCommand = "npm run build"
-startCommand = "echo '--- DEBUG START ---' && ls -F && npx next start -p $PORT"
+# Service 2: Frontend (Dashboard)
+[service.client]
+path = "/dashboard"
+buildCommand = "npm install && npm run build"
+startCommand = "npm start"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+variablePolicy = "Shared" 
+# Shared variables allow frontend to access public vars if needed, 
+# but usually we want explicit linking. Railway TOML doesn't fully support 
+# cross-service linking automatically in all tiers, but defining them splits them.
