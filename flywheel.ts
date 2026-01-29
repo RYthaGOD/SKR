@@ -233,11 +233,22 @@ async function runCycle() {
                 if (claimedSol > 0.001) {
                     addFlywheelLog(`Success! Claimed ${claimedSol.toFixed(4)} SOL.`);
 
-                    // 3. Buyback 80%
+                    // 3. Buyback 80% (Diverted based on Market Cap)
                     const buyAmount = claimedSol * 0.80;
-                    addFlywheelLog(`Buying SKR with 80% of fees: ${buyAmount.toFixed(4)} SOL`);
+
                     try {
-                        await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
+                        const mcap = await getIsgMarketCap();
+                        addFlywheelLog(`ISG Market Cap: $${mcap.toFixed(2)}`);
+
+                        if (mcap < 20000) { // $20k Threshold
+                            addFlywheelLog(`Market Cap < $20k. Diverting buyback to ISG...`);
+                            addFlywheelLog(`Buying ISG with ${buyAmount.toFixed(4)} SOL`);
+                            await PumpPortal.buyToken(buyAmount, ISG_MINT);
+                        } else {
+                            addFlywheelLog(`Market Cap >= $20k. Buying SKR...`);
+                            addFlywheelLog(`Buying SKR with ${buyAmount.toFixed(4)} SOL`);
+                            await Jupiter.swapSolToToken(buyAmount, SKR_MINT);
+                        }
                     } catch (err: any) {
                         addFlywheelLog(`Buyback Failed: ${err.message}`);
                     }
@@ -294,6 +305,27 @@ async function runCycle() {
 }
 
 /* --- HELPERS --- */
+
+// Helper to check ISG Market Cap via DexScreener
+import fetch from 'node-fetch'; // Ensure this is installed/imported
+async function getIsgMarketCap(): Promise<number> {
+    if (ISG_MINT.includes("REPLACE")) return 0;
+    try {
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ISG_MINT}`);
+        if (!res.ok) throw new Error("DexScreener API failed");
+
+        const data: any = await res.json();
+        if (!data.pairs || data.pairs.length === 0) return 999999; // Assume high if not found to default to SKR buy
+
+        // Find the main pair (usually the first one or the one with highest liquidity)
+        const pair = data.pairs[0];
+        const mcap = parseFloat(pair.fdv) || parseFloat(pair.marketCap) || 0;
+        return mcap;
+    } catch (e: any) {
+        console.warn(`[Flywheel] Failed to fetch Market Cap: ${e.message}`);
+        return 999999; // Default to buying SKR on error
+    }
+}
 
 // Mock helper until real API exists or we use RPC to check curve
 // Realistically, to check "Claimable Fees" on Pump.fun, we might just try to claim?
