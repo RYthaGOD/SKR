@@ -15,7 +15,14 @@ export const ISG_MINT = process.env.ISG_MINT || "BAszjaGWSJJiSuzAxAH5VfY8Vx8sBwx
 export const SKR_MINT = process.env.SKR_MINT || "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
 
 // 3. Your Wallet (Must be the Creator Wallet of ISG to claim fees)
+// 3. Your Wallet (Must be the Creator Wallet of ISG to claim fees)
 export const PRIVATE_KEY_STRING = process.env.PRIVATE_KEY || "";
+
+if (!PRIVATE_KEY_STRING) {
+    console.warn("⚠️ WARNING: PRIVATE_KEY not set. Generating random wallet for testing (Balance: 0 SOL).");
+    console.warn("⚠️ Transactions will fail unless you fund this wallet or set PRIVATE_KEY.");
+}
+
 export const WALLET_KEYPAIR = PRIVATE_KEY_STRING
     ? Keypair.fromSecretKey(bs58.decode(PRIVATE_KEY_STRING))
     : Keypair.generate(); // Fallback for testing only
