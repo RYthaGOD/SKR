@@ -3,10 +3,12 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-const DB_BASE_PATH = process.env.DB_STORAGE_PATH || __dirname;
+const DB_BASE_PATH = process.env.DB_STORAGE_PATH || path.join(__dirname, 'data'); // Default to ./data subdir
 const DB_PATH = path.join(DB_BASE_PATH, 'flywheel.db');
 
-console.log(`[Database] Using storage path: ${DB_PATH}`);
+console.log(`[Database] Initializing SQLite...`);
+console.log(`[Database] Storage Path: ${DB_PATH}`);
+console.log(`[Database] Env DB_STORAGE_PATH: ${process.env.DB_STORAGE_PATH || "Not Set (Using Default)"}`);
 
 // Ensure directory exists
 if (!fs.existsSync(DB_BASE_PATH)) {
