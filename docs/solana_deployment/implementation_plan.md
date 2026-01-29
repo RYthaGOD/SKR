@@ -1,65 +1,153 @@
-# Step-by-Step Deployment Plan: Solana dApp Store 2.0
+# Master Deployment Plan: Solana dApp Store 2.0 (Linux Edition)
 
-## Goal
-Deploy the SKR Dashboard to the Solana dApp Store with zero hassle.
+## Objective
+Deploy the SKR Dashboard to the Solana dApp Store 2.0 with zero errors and a 100% first-try success rate.
 
-## Phase 1: Environment Readiness (The Foundation)
-We need to ensure your Windows machine can build Android apps.
-- [ ] **Run Check Script**: Run the `check_prereqs.ps1` script I created to verify your system.
-    -   *If missing Node.js*: Install from nodejs.org.
-    -   *If missing JDK 17*: Install from Adoptium.net.
-- [ ] **Install Tools**:
-    ```powershell
-    npm install -g @bubblewrap/cli
-    npm install -g @solana-mobile/dapp-publishing-cli
+## Current Status (2026-01-27)
+- **Node.js**: ✅ Ready (v20)
+- **Solana CLI**: ✅ Ready
+- **JDK 17**: ❌ MISSING
+- **Android SDK**: ❌ MISSING
+- **Bubblewrap**: ❌ MISSING
+- **dApp Store CLI**: ❌ MISSING
+
+---
+
+## Phase 1: The "Ironclad" Foundation
+We cannot build without these tools. You must run these commands.
+
+### 1. Install Java (JDK 17)
+Bubblewrap *requires* Java 17.
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install openjdk-17-jdk -y
+
+# Verify
+java -version
+# Output MUST contain "openjdk 17" or "17.0.x"
+```
+
+### 2. Install NPM Tools
+I can auto-run this, but for completeness:
+```bash
+npm install -g @bubblewrap/cli @solana-mobile/dapp-store-cli
+```
+
+### 3. Initialize Bubblewrap (Auto-Install SDK)
+Bubblewrap is smart. It can download the Android SDK for you if Java is present.
+```bash
+# Create a robust directory
+mkdir -p ~/deployment/bubblewrap
+cd ~/deployment/bubblewrap
+
+# This command will ask to install Android SDK. 
+# SAY YES to everything.
+bubblewrap doctor
+```
+*Note: If `bubblewrap doctor` fails to install the SDK, we will need to manually download the Android Command Line Tools.*
+
+---
+
+## Phase 2: Assets that Don't Get Rejected
+The #1 reason for rejection is bad assets. We will follow the **Strict Policy**.
+
+### Directory Structure
+Create `~/deployment/assets`.
+
+### 1. App Icon (`icon.png`)
+*   **Size**: EXACTLY 512x512 pixels.
+*   **Format**: PNG (No transparency is safer, but transparency allowed).
+*   **Content**: Your logo. Keep important details in the inner 75% "safe zone".
+*   **Action**: Use `identify deployment/assets/icon.png` to verify size.
+
+### 2. Feature Graphic / Banner (`banner.png`)
+*   **Size**: EXACTLY 1024x500 pixels (Google Play standard) or 1200x600 pixels (Solana often accepts this, but 1024x500 is safer for Android manifests). **Recommendation: 1024x500**.
+*   **Format**: PNG or JPG.
+*   **Content**: Marketing visual. Text should be large and centered.
+
+### 3. Screenshots
+*   **Quantity**: Minimum 4, Maximum 8.
+*   **Dimensions**:
+    *   **Portrait**: 1080x1920
+    *   **Landscape**: 1920x1080
+*   **Content**: Actual app usage. No blurry text.
+*   **Filenames**: `screen1.png`, `screen2.png`, etc.
+
+---
+
+## Phase 3: The Build (Bubblewrap)
+We convert your web dashboard into an Android APK (TWA - Trusted Web Activity).
+
+1.  **Initialize Project**:
+    ```bash
+    cd ~/deployment/bubblewrap
+    bubblewrap init --manifest https://your-dashboard-url.com/manifest.json
+    ```
+    *   *If you don't have a live manifest, answering the prompts will generate one.*
+    *   **Signing Key**: Choose **"Create new keystore"**.
+    *   **Key Store Password**: WRITE THIS DOWN.
+    *   **Key Password**: WRITE THIS DOWN.
+
+2.  **Build**:
+    ```bash
+    bubblewrap build
+    ```
+    *   **Result**: `app-release-signed.apk`.
+
+---
+
+## Phase 4: The Publication (Solana Mobile)
+This involves on-chain actions.
+
+1.  **Initialize dApp Store Config**:
+    ```bash
+    mkdir -p ~/deployment/dapp-store
+    cd ~/deployment/dapp-store
+    dapp-store init
+    ```
+    This creates `config.yaml`.
+
+2.  **Edit `config.yaml` (CRITICAL)**:
+    We must fill this accurately.
+    *   `publisher`: Your details.
+    *   `app`: App details.
+    *   `release`: Point to your `assets` and the `apk`.
+    *   **Crucial Flags**: Ensure the config reflects that you are authorized.
+
+3.  **Validate**:
+    ```bash
+    dapp-store validate
+    ```
+    *   Must return "Validation successful". **Zero warnings**.
+
+4.  **Mint & Publish**:
+    *   **Create Publisher**:
+        ```bash
+        dapp-store create-publisher --keypair /path/to/solana-wallet.json
+        ```
+    *   **Create App**:
+        ```bash
+        dapp-store create-app --publisher-address <PUB_ADDR_FROM_ABOVE>
+        ```
+    *   **Create Release**:
+        ```bash
+        dapp-store create-release --app-address <APP_ADDR> --build-tools-path <PATH_TO_ANDROID_SDK>
+        # Note: build-tools-path might be auto-detected or needed if validation fails.
     ```
 
-## Phase 2: Asset Generation (The Rejection Shield)
-We must create these exact assets to avoid auto-rejection.
-- [ ] **Create Folder structure**:
-    ```text
-    /deployment
-      /assets
-      config.yaml
+5.  **Submit**:
+    This sends the request to the Solana Mobile team.
+    ```bash
+    dapp-store publish submit --app-address <APP_ADDR> --release-address <RELEASE_ADDR> --complies-with-solana-dapp-store-policies --requestor-is-authorized
     ```
-- [ ] **Generate/Collect Images**:
-    - [ ] **Icon (512x512 PNG)**: Must be square. Keep important logos in the center (safe zone).
-    - [ ] **Banner (1200x600 PNG/JPG)**: Marketing graphic.
-    - [ ] **Screenshots (4x)**: Take 4 screenshots of the dashboard. Resize them to **1080x1920** (Portrait) OR **1920x1080** (Landscape). consistency is key.
 
-## Phase 3: Building the APK (The Wrapper)
-We turn your website into an app.
-- [ ] **Initialize Bubblewrap**:
-    -   Run `bubblewrap init --manifest https://dashboard-production-5825.up.railway.app/manifest.json` (If you don't have a manifest, we will create one).
-    -   *Crucial Answer*: When asked about "Signing Key", choose **"Create a new keystore"**.
-    -   **SAVE THE PASSWORDS**.
-- [ ] **Build**:
-    -   Run `bubblewrap build`.
-    -   Result: `app-release-signed.apk`. Move this to your `/deployment` folder.
+---
 
-## Phase 4: Submission (The Launch)
-- [ ] **Configure**:
-    -   Copy the `config_template.yaml` I provided to `config.yaml`.
-    -   Fill in your specific details (URLs, etc.).
-- [ ] **Validate**:
-    -   Run `dapp-store validate`.
-    -   Fix any reported errors (usually image sizes).
-- [ ] **Publish**:
-    -   Run `dapp-store publish`.
-    -   You will need a Solana CLI wallet with ~0.05 SOL.
-
-## Risk Assessment & Mitigation (Getting to 100% Certainty)
-To ensure success, we must address these specific risks:
-
-| Risk | Probability | Impact | Mitigation Strategy |
-| :--- | :--- | :--- | :--- |
-| **Environment Issues** | Medium | Blocker | **Run `check_prereqs.ps1` FIRST.** If this passes, the build *will* work. |
-| **Store Rejection** | Low | Delay | Follow our **Strict Asset Specs** (512px icon, etc.). Don't guess. |
-| **Key Loss** | Low | Critical | We will save the **Keystore file** and **Password** in a dedicated password manager immediately. |
-| **Review Fail** | Low | Rejection | Ensure the dashboard URL in `config.yaml` is live and working before submitting. |
-
-## Immediate Go/No-Go Check
-We cannot proceed with 100% certainty until we run the verification script.
-- [ ] **Run `check_prereqs.ps1`**
-    -   ✅ **PASS**: We are 100% ready to build.
-    -   ❌ **FAIL**: We must fix the specific missing tool (Java/Node) before doing anything else.
+## Phase 5: Verification (The "No Mistakes" Check)
+Before submitting, we run this checklist:
+- [ ] `check_prereqs.sh` passes 100%.
+- [ ] `bubblewrap build` produced a signed APK.
+- [ ] all images are verified with `file` or `identify` to be exact dimensions.
+- [ ] `dapp-store validate` returns success.
+- [ ] You have ~0.5 SOL in yourCLI wallet for minting costs.

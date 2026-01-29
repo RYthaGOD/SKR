@@ -14,10 +14,11 @@ import { StatsCard } from '@/components/StatsCard';
 import { useStats } from '@/hooks/useStats';
 import { useClaim } from '@/hooks/useClaim';
 import { useShieldedBalance } from '@/hooks/useShieldedBalance';
+import { useTokenBalance } from '@/hooks/useTokenBalance'; // Added
 import { ShieldButton } from '@/components/Privacy/ShieldButton';
 import { UnshieldButton } from '@/components/Privacy/UnshieldButton';
-import { CliHelper } from '@/components/Privacy/CliHelper'; // Added
-import { ISG_MINT, APP_VERSION, BUILD_TIMESTAMP } from '@/config/constants';
+import { CliHelper } from '@/components/Privacy/CliHelper';
+import { ISG_MINT, APP_VERSION, BUILD_TIMESTAMP, SKR_MINT } from '@/config/constants'; // Added SKR_MINT
 
 export default function Home() {
   const { publicKey } = useWallet();
@@ -28,6 +29,8 @@ export default function Home() {
   const addLog = (msg: string) => setLogs(prev => [...prev, `> ${msg}`]);
   const { state: claimState, checkEligibility, handleClaim } = useClaim(addLog);
   const { balance: shieldedBalance, loading: shieldingLoading } = useShieldedBalance();
+  const { balance: skrBalance, loading: skrLoading } = useTokenBalance(SKR_MINT); // Added
+
 
   // Boot Handler
   const handleBootComplete = () => setIsBooting(false);
@@ -211,10 +214,10 @@ export default function Home() {
                 <span className="text-[9px] opacity-50">{shieldingLoading ? "SCANNING_ZK_STATE..." : `ZK_BALANCE: ${shieldedBalance?.toFixed(2) || "0.00"}`}</span>
               </div>
               <div className="flex gap-2 mt-2">
-                <ShieldButton balance={claimState.amount || 0} />
+                <ShieldButton balance={skrBalance || 0} />
                 <UnshieldButton balance={shieldedBalance || 0} />
               </div>
-              <CliHelper type="shield" amount={Math.floor(claimState.amount || 0)} balance={claimState.amount || 0} />
+              <CliHelper type="shield" amount={Math.floor(skrBalance || 0)} balance={skrBalance || 0} />
             </div>
           </div>
         </div>
