@@ -68,25 +68,43 @@ export const UnshieldButton = ({ balance }: { balance: number }) => {
             });
 
             // 3. Add Compute Budget instructions (ZK operations are heavy)
-            const { ComputeBudgetProgram } = await import('@solana/web3.js');
+            const { ComputeBudgetProgram, TransactionMessage, VersionedTransaction } = await import('@solana/web3.js');
             const computeLimitIx = ComputeBudgetProgram.setComputeUnitLimit({
-                units: 800_000, // ZK Decompression is heavy
+                units: 800_000,
             });
             const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
-                microLamports: 10_000, // Nominal priority fee
+                microLamports: 10_000,
             });
 
-            // 4. Send Transaction
-            const tx = new Transaction().add(computeLimitIx).add(priorityFeeIx).add(ix);
-            tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-            tx.feePayer = publicKey;
+            // 4. Fetch Address Lookup Tables (Critical for ZK Decompression)
+            const LOOKUP_TABLE_1 = new PublicKey("7i86eQs3GSqHjN47WdWLTCGMW6gde1q96G2EVnUyK2st");
+            const LOOKUP_TABLE_2 = new PublicKey("H9QD4u1fG7KmkAzn2tDXhheushxFe1EcrjGGyEFXeMqT");
+
+            const [lut1, lut2] = await Promise.all([
+                connection.getAddressLookupTable(LOOKUP_TABLE_1),
+                connection.getAddressLookupTable(LOOKUP_TABLE_2)
+            ]);
+
+            const lookupTableAccounts = [];
+            if (lut1.value) lookupTableAccounts.push(lut1.value);
+            if (lut2.value) lookupTableAccounts.push(lut2.value);
+
+            // 5. Construct V0 Message
+            const latestBlockhash = await connection.getLatestBlockhash();
+            const messageV0 = new TransactionMessage({
+                payerKey: publicKey,
+                recentBlockhash: latestBlockhash.blockhash,
+                instructions: [computeLimitIx, priorityFeeIx, ix]
+            }).compileToV0Message(lookupTableAccounts);
+
+            const tx = new VersionedTransaction(messageV0);
 
             // PRE-FLIGHT SIMULATION
-            console.log("[Privacy] Simulating unshield transaction...");
+            console.log("[Privacy] Simulating unshield V0 transaction...");
             const simulation = await connection.simulateTransaction(tx);
             if (simulation.value.err) {
-                console.error("[Privacy] Unshield Simulation Failed:", simulation.value.logs);
-                throw new Error(`Simulation Error: ${JSON.stringify(simulation.value.err)}`);
+                console.error("[Privacy] Unshield Simulation Failed. Logs:", simulation.value.logs);
+                throw new Error(`Simulation Error: ${JSON.stringify(simulation.value.err)}. Check console for logs.`);
             }
 
             const signature = await sendTransaction(tx, connection);
@@ -98,8 +116,7 @@ export const UnshieldButton = ({ balance }: { balance: number }) => {
 
         } catch (e: any) {
             console.error("Unshield Error:", e);
-            // Helpful fallback
-            alert("Unshielding Error: " + (e.message || "Unknown. Ensure you have ZK proofs enabled via CLI."));
+            alert("Unshielding Error: " + (e.message || "Unknown Error. Check console."));
         } finally {
             setLoading(false);
         }

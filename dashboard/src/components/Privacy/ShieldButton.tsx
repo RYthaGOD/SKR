@@ -51,25 +51,38 @@ export const ShieldButton = ({ balance, onSuccess }: { balance: number, onSucces
             });
 
             // 3. Add Compute Budget instructions (ZK operations are heavy)
-            const { ComputeBudgetProgram } = await import('@solana/web3.js');
+            const { ComputeBudgetProgram, TransactionMessage, VersionedTransaction } = await import('@solana/web3.js');
             const computeLimitIx = ComputeBudgetProgram.setComputeUnitLimit({
-                units: 800_000, // ZK Compression is heavy
+                units: 800_000,
             });
             const priorityFeeIx = ComputeBudgetProgram.setComputeUnitPrice({
-                microLamports: 10_000, // Nominal priority fee
+                microLamports: 10_000,
             });
 
-            // 4. Send Transaction
-            const tx = new Transaction().add(computeLimitIx).add(priorityFeeIx).add(ix);
-            tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-            tx.feePayer = publicKey;
+            // 4. Fetch Address Lookup Table (Essential for ZK Compression on Mainnet)
+            const LOOKUP_TABLE_ADDRESS = new PublicKey("7i86eQs3GSqHjN47WdWLTCGMW6gde1q96G2EVnUyK2st");
+            const lookupTableAccount = (await connection.getAddressLookupTable(LOOKUP_TABLE_ADDRESS)).value;
+
+            if (!lookupTableAccount) {
+                console.warn("[Privacy] LUT not found, falling back to legacy (might fail size check)");
+            }
+
+            // 5. Construct V0 Message
+            const latestBlockhash = await connection.getLatestBlockhash();
+            const messageV0 = new TransactionMessage({
+                payerKey: publicKey,
+                recentBlockhash: latestBlockhash.blockhash,
+                instructions: [computeLimitIx, priorityFeeIx, ix]
+            }).compileToV0Message(lookupTableAccount ? [lookupTableAccount] : []);
+
+            const tx = new VersionedTransaction(messageV0);
 
             // PRE-FLIGHT SIMULATION for better error debugging
-            console.log("[Privacy] Simulating transaction...");
+            console.log("[Privacy] Simulating V0 transaction...");
             const simulation = await connection.simulateTransaction(tx);
             if (simulation.value.err) {
-                console.error("[Privacy] Simulation Failed:", simulation.value.logs);
-                throw new Error(`Simulation Error: ${JSON.stringify(simulation.value.err)}`);
+                console.error("[Privacy] Simulation Failed. Logs:", simulation.value.logs);
+                throw new Error(`Simulation Error: ${JSON.stringify(simulation.value.err)}. Check console for logs.`);
             }
 
             const signature = await sendTransaction(tx, connection);
