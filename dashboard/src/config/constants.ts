@@ -10,6 +10,7 @@ export const HELIUS_RPC_URL = "https://mainnet.helius-rpc.com/?api-key="; // Wil
 
 export const MIN_REWARD_TOKENS = 100;
 export const APP_VERSION = "1.5.0-SEEKER";
+export const BUILD_TIMESTAMP = "2026-01-29 19:40:00 UTC"; // Manual Stamp
 
 export const SOCIALS = {
     telegram: "https://t.me/SKR_COMMUNITY_LINK",

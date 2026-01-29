@@ -17,7 +17,7 @@ import { useShieldedBalance } from '@/hooks/useShieldedBalance';
 import { ShieldButton } from '@/components/Privacy/ShieldButton';
 import { UnshieldButton } from '@/components/Privacy/UnshieldButton';
 import { CliHelper } from '@/components/Privacy/CliHelper'; // Added
-import { ISG_MINT, APP_VERSION } from '@/config/constants';
+import { ISG_MINT, APP_VERSION, BUILD_TIMESTAMP } from '@/config/constants';
 
 export default function Home() {
   const { publicKey } = useWallet();
@@ -62,6 +62,7 @@ export default function Home() {
           <div className="flex gap-4 text-[10px] opacity-60 tracking-widest mt-1">
             <span>SYS_STATUS: <span className={stats?.cycleParams?.status === "IDLE" ? "text-yellow-400" : "text-[#00ff41] animate-pulse"}>{stats?.cycleParams?.status || "OFFLINE"}</span></span>
             <span>NET: MAINNET-BETA</span>
+            <span className="text-[#00ff41]/50">| BLD: {BUILD_TIMESTAMP}</span>
           </div>
         </div>
         <div className="hover:scale-105 transition-transform">
